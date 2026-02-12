@@ -1,0 +1,121 @@
+
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>מטווח המסבאה - המערב הפרוע</title>
+    <meta name="description" content="משחק יריות קלאסי במערב הפרוע. שבור בקבוקים, שדרג את הנשק ושבור שיאים!" />
+    <meta name="keywords" content="משחק יריות, מערב פרוע, קאובוי, משחק דפדפן, מטווח" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤠</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Varela+Round&family=Rye&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --bg-main: #1a1a1a;
+        --accent: #d97706;
+      }
+      .theme-sepia {
+        --bg-main: #4a3728;
+        filter: sepia(0.3) contrast(1.1);
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        font-family: 'Varela Round', sans-serif;
+        background-color: var(--bg-main);
+        cursor: crosshair;
+        user-select: none;
+        transition: background-color 0.5s ease;
+      }
+      .font-rye {
+        font-family: 'Rye', cursive;
+      }
+      @keyframes shockwave {
+        0% {
+          width: 0px;
+          height: 0px;
+          opacity: 1;
+          border-width: 6px;
+          border-color: rgba(255, 255, 255, 0.8);
+          transform: translate(-50%, -50%) scale(0.1);
+        }
+        50% {
+          opacity: 0.6;
+          border-color: rgba(251, 191, 36, 0.5);
+        }
+        100% {
+          width: 180px;
+          height: 180px;
+          opacity: 0;
+          border-width: 1px;
+          transform: translate(-50%, -50%) scale(1.2);
+        }
+      }
+      .animate-shockwave {
+        animation: shockwave 0.35s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+      }
+      @keyframes pulse-dust {
+        0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.8; }
+        100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+      }
+      .animate-dust {
+        animation: pulse-dust 0.5s ease-out forwards;
+      }
+      @keyframes smoke {
+        0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+        20% { opacity: 0.4; }
+        100% { transform: translate(-50%, -150%) scale(2.5); opacity: 0; }
+      }
+      .animate-smoke {
+        animation: smoke 2s ease-out forwards;
+      }
+      @keyframes fire {
+        0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
+        50% { transform: translate(-50%, -60%) scale(1.2); opacity: 1; }
+      }
+      .animate-fire {
+        animation: fire 0.3s ease-in-out infinite;
+      }
+      @keyframes screen-shake {
+        0% { transform: translate(1px, 1px) rotate(0deg); }
+        10% { transform: translate(-1px, -2px) rotate(-1deg); }
+        20% { transform: translate(-3px, 0px) rotate(1deg); }
+        30% { transform: translate(3px, 2px) rotate(0deg); }
+        40% { transform: translate(1px, -1px) rotate(1deg); }
+        50% { transform: translate(-1px, 2px) rotate(-1deg); }
+        60% { transform: translate(-3px, 1px) rotate(0deg); }
+        70% { transform: translate(3px, 1px) rotate(-1deg); }
+        80% { transform: translate(-1px, -1px) rotate(1deg); }
+        90% { transform: translate(1px, 2px) rotate(0deg); }
+        100% { transform: translate(1px, -2px) rotate(-1deg); }
+      }
+      .shake-heavy {
+        animation: screen-shake 0.5s;
+      }
+      @keyframes bottle-hit-flash {
+        0% { filter: brightness(3); transform: scale(1.1); }
+        100% { filter: brightness(1); transform: scale(1); }
+      }
+      .hit-flash {
+        animation: bottle-hit-flash 0.15s ease-out;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <div id="adsense-placeholder" style="display:none"></div>
+  </body>
+</html>
