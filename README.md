@@ -1,20 +1,33 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# מטווח המסבאה - Bar Shooter 🤠
 
-# Run and deploy your AI Studio app
+משחק יריות אינטראקטיבי במערב הפרוע, הבנוי עם React ו-Tailwind CSS. 
+הפוך לצליף המהיר ביותר במסבאה, שדרג את הנשק שלך ושבור שיאים!
 
-This contains everything you need to run your app locally.
+## 🎮 תכונות עיקריות
+- **מכניקת ירי מתקדמת:** פגיעה בבקבוקים עם משוב ויזואלי (סדקים, הבהובים) וקולי.
+- **מערכת שדרוגים:** חנות המאפשרת לקנות תחמושת, זמן נוסף, רימונים ושיפורי רובה.
+- **כוחות על (Power-ups):** קצב אש מהיר, הילוך איטי (Slow Motion) ותחמושת נוספת הנופלים בשדה המשחק.
+- **טבלת שיאים:** שמירת 5 השיאים המובילים מקומית (LocalStorage).
+- **תמיכה במובייל:** בקרים וירטואליים (WASD) למכשירים ניידים.
+- **עיצוב רספונסיבי:** מתאים לכל גודל מסך עם ערכות נושא (כהה/ספיה).
 
-View your app in AI Studio: https://ai.studio/apps/drive/1yH-r8fMVcxYuqrZCsSAkEzZxY79owwiu
+## 🛠 טכנולוגיות
+- **React 19**
+- **Tailwind CSS** (עיצוב ורספונסיביות)
+- **Lucide React** (אייקונים)
+- **CSS Animations** (אפקטים של פיצוצים, עשן וזעזועי מסך)
 
-## Run Locally
+## 🚀 הוראות הרצה
+1. וודא שמותקן אצלך Node.js.
+2. העתק את הקבצים לתיקייה מקומית.
+3. הרץ `npm install` להתקנת התלויות.
+4. הרץ `npm start` (או פקודת ההרצה המקבילה בסביבה שלך) כדי להתחיל לשחק.
 
-**Prerequisites:**  Node.js
+## 📁 מבנה הפרויקט
+- `src/App.tsx`: רכיב המשחק הראשי וניהול הסטייט.
+- `src/components/GameScene.tsx`: מנוע הרינדור והלוגיקה של המטווח.
+- `src/components/ParticleSystem.tsx`: מערכת החלקיקים לשברים ונוזלים.
+- `src/components/HighScoreTable.tsx`: תצוגת שיאים בעיצוב "Wanted".
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+---
+נוצר על ידי **Noam Gold AI** - 2026.

@@ -40,7 +40,7 @@ interface HitEffect {
   isShockwave?: boolean;
   isSmoke?: boolean;
   isFire?: boolean;
-  type?: 'shards' | 'liquid';
+  type?: 'shards' | 'liquid' | 'gold' | 'star';
   delay?: number;
   timestamp: number;
   size?: number;
@@ -67,12 +67,86 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
   const lastShotTime = useRef(0);
   const keysPressed = useRef<Set<string>>(new Set());
 
-  const playSfx = (key: keyof typeof SOUNDS) => {
+  const playSfx = useCallback((key: keyof typeof SOUNDS) => {
     if (isMuted) return;
     const audio = new Audio(SOUNDS[key]);
     audio.volume = 0.4;
     audio.play().catch(() => {});
-  };
+  }, [isMuted]);
+
+  const addFloatingText = useCallback((x: number, y: number, text: string, color: string, isStar = false) => {
+    const id = Math.random().toString();
+    setFloatingTexts(prev => [...prev, { id, x, y, text, color, isStar }]);
+    setTimeout(() => setFloatingTexts(prev => prev.filter(t => t.id !== id)), 1000);
+  }, []);
+
+  const handleShootAt = useCallback((xPercent: number, yPercent: number) => {
+    if (status !== GameStatus.PLAYING) return;
+    const now = Date.now();
+    const cooldown = RIFLE_BENEFITS[rifleLevel - 1]?.cooldown || 450;
+    
+    if (now - lastShotTime.current < cooldown) return;
+    if (ammo <= 0 && activePowerUp !== PowerUpType.RAPID_FIRE) return;
+
+    lastShotTime.current = now;
+    onShot();
+    playSfx('shot');
+    
+    setFlash({ x: xPercent, y: yPercent });
+    setTimeout(() => setFlash(null), 50);
+
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const hitRadius = RIFLE_BENEFITS[rifleLevel - 1]?.radius || 3.5;
+    
+    setBottles(prev => prev.map(b => {
+      if (b.isBroken) return b;
+      const dx = b.x - xPercent;
+      const dy = b.y - yPercent;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist < hitRadius) {
+        const newHitsTaken = b.hitsTaken + 1;
+        const isNowBroken = newHitsTaken >= b.hitsRequired;
+        
+        if (isNowBroken) {
+          playSfx('break');
+          const typeInfo = BOTTLE_TYPES.find(t => t.type === b.type);
+          onHit(typeInfo?.points || 10);
+          addFloatingText(b.x, b.y - 10, `+${typeInfo?.points || 10}`, '#fbbf24', true);
+          
+          const px = (b.x / 100) * rect.width;
+          const py = (b.y / 100) * rect.height;
+          setHits(h => [...h, 
+            { id: Math.random().toString(), x: px, y: py, color: b.color, type: 'shards', timestamp: Date.now() },
+            { id: Math.random().toString(), x: px, y: py, color: b.liquidColor, type: 'liquid', delay: 50, timestamp: Date.now() },
+            { id: Math.random().toString(), x: px, y: py, color: '#fbbf24', type: 'gold', delay: 10, timestamp: Date.now() },
+            { id: Math.random().toString(), x: px, y: py, color: '#fde047', type: 'star', delay: 20, timestamp: Date.now() }
+          ]);
+          
+          return { ...b, isBroken: true, hitsTaken: newHitsTaken, vx: (Math.random() - 0.5) * 10, vy: -15, rv: (Math.random() - 0.5) * 20 };
+        } else {
+          playSfx('clink');
+          return { ...b, hitsTaken: newHitsTaken, isHit: true };
+        }
+      }
+      return b;
+    }));
+
+    setPowerUps(prev => prev.filter(p => {
+      const dx = p.x - xPercent;
+      const dy = p.y - yPercent;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 5) {
+        onPowerUp(p.type);
+        playSfx('powerup');
+        addFloatingText(p.x, p.y, p.type.replace('_', ' '), '#fbbf24', true);
+        return false;
+      }
+      return true;
+    }));
+  }, [status, ammo, activePowerUp, rifleLevel, onShot, onHit, onPowerUp, playSfx, addFloatingText]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -88,25 +162,15 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [status, crosshair]);
+  }, [status, crosshair, handleShootAt]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
-      setHits(prev => prev.filter(h => {
-        if (h.isFire) return now - h.timestamp < 3000;
-        if (h.isSmoke) return now - h.timestamp < 3000;
-        return now - h.timestamp < 3000;
-      }));
+      setHits(prev => prev.filter(h => now - h.timestamp < 3000));
     }, 1000);
     return () => clearInterval(interval);
   }, []);
-
-  const addFloatingText = (x: number, y: number, text: string, color: string, isStar = false) => {
-    const id = Math.random().toString();
-    setFloatingTexts(prev => [...prev, { id, x, y, text, color, isStar }]);
-    setTimeout(() => setFloatingTexts(prev => prev.filter(t => t.id !== id)), 1000);
-  };
 
   const spawnBottles = useCallback(() => {
     const newBottles: Bottle[] = [];
@@ -144,6 +208,12 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
     }
   }, [level]);
 
+  useEffect(() => {
+    if (status === GameStatus.PLAYING && bottles.length === 0) {
+      spawnBottles();
+    }
+  }, [status, bottles.length, spawnBottles]);
+
   useImperativeHandle(ref, () => ({
     triggerGrenade: () => {
       if (status !== GameStatus.PLAYING) return;
@@ -152,8 +222,11 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
       setTimeout(() => setShake(false), 800);
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const cx = rect.width / 2;
-      const cy = rect.height * 0.7;
+      
+      const exX = 50; 
+      const exY = 75;
+      const cx = (exX / 100) * rect.width;
+      const cy = (exY / 100) * rect.height;
       addFloatingText(50, 40, "פיצוץ מסיבי!", "#ff4500");
       
       const timestamp = Date.now();
@@ -162,7 +235,6 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
         { id: 'shock-' + timestamp, x: cx, y: cy, color: 'white', isShockwave: true, timestamp }
       ];
 
-      // Add smoke and fire visuals
       for (let i = 0; i < 15; i++) {
         grenadeHits.push({
           id: `smoke-${i}-${timestamp}`,
@@ -184,134 +256,85 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
         });
       }
 
-      setHits(prev => [...prev, ...grenadeHits]);
-      
-      setBottles(prev => prev.map(b => {
-        if (b.isBroken) return b;
-        onHit(5);
-        const bx = (b.x / 100) * rect.width;
-        const by = (b.y / 100) * rect.height;
-        setHits(h => [...h, 
-          { id: `shard-${b.id}-${timestamp}`, x: bx, y: by, color: b.liquidColor, type: 'shards', delay: 0, timestamp },
-          { id: `liquid-${b.id}-${timestamp}`, x: bx, y: by, color: b.liquidColor, type: 'liquid', delay: 200, timestamp }
-        ]);
-        return { ...b, isBroken: true, hitsTaken: b.hitsRequired, vx: (Math.random() - 0.5) * 35, vy: -20 - Math.random() * 25, rv: (Math.random() - 0.5) * 400 };
-      }));
+      setBottles(prev => {
+        const newBottles = prev.map(b => {
+          if (b.isBroken) return b;
+          onHit(5);
+          
+          const dx = b.x - exX;
+          const dy = b.y - exY;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const force = 60 / (dist * 0.1 + 1);
+          
+          const bx = (b.x / 100) * rect.width;
+          const by = (b.y / 100) * rect.height;
+          
+          grenadeHits.push(
+            { id: `g-shard-${b.id}-${timestamp}`, x: bx, y: by, color: b.color, type: 'shards', timestamp },
+            { id: `g-liq-${b.id}-${timestamp}`, x: bx, y: by, color: b.liquidColor, type: 'liquid', timestamp },
+            { id: `g-gold-${b.id}-${timestamp}`, x: bx, y: by, color: '#fbbf24', type: 'gold', timestamp },
+            { id: `g-star-${b.id}-${timestamp}`, x: bx, y: by, color: '#fde047', type: 'star', timestamp }
+          );
+
+          return {
+            ...b,
+            isBroken: true,
+            vx: (dx / dist) * force,
+            vy: (dy / dist) * force - 10,
+            rv: (Math.random() - 0.5) * 50
+          };
+        });
+        setHits(h => [...h, ...grenadeHits]);
+        return newBottles;
+      });
     }
-  }));
-
-  const animate = useCallback(() => {
-    if (status !== GameStatus.PLAYING) {
-      requestRef.current = requestAnimationFrame(animate);
-      return;
-    }
-
-    const speed = 1.5;
-    let dx = 0;
-    let dy = 0;
-    if (keysPressed.current.has('w')) dy -= speed;
-    if (keysPressed.current.has('s')) dy += speed;
-    if (keysPressed.current.has('a')) dx -= speed;
-    if (keysPressed.current.has('d')) dx += speed;
-
-    if (dx !== 0 || dy !== 0) {
-      setCrosshair(prev => ({
-        x: Math.max(0, Math.min(100, prev.x + dx)),
-        y: Math.max(0, Math.min(100, prev.y + dy))
-      }));
-    }
-
-    setBottles((prev) => prev.map((b) => {
-      if (!b.isBroken) return b;
-      const nextVy = b.vy + 0.5 * timeScale;
-      const nextX = b.x + b.vx * timeScale;
-      const nextY = b.y + b.vy * timeScale;
-      const nextRotation = b.rotation + b.rv * timeScale;
-      return { ...b, x: nextX, y: nextY, vy: nextVy, rotation: nextRotation, offScreen: nextY > 120 || nextX < -10 || nextX > 110 };
-    }).filter(b => !b.offScreen || !b.isBroken));
-    
-    setPowerUps(prev => prev.map(p => ({ ...p, life: p.life - 0.005 * timeScale })).filter(p => p.life > 0));
-
-    requestRef.current = requestAnimationFrame(animate);
-  }, [status, timeScale]);
+  }), [status, onHit, playSfx, addFloatingText]);
 
   useEffect(() => {
-    requestRef.current = requestAnimationFrame(animate);
-    return () => { if (requestRef.current) cancelAnimationFrame(requestRef.current); };
-  }, [animate]);
+    let lastTime = 0;
+    const loop = (time: number) => {
+      const dt = (time - lastTime) / 16;
+      lastTime = time;
 
-  useEffect(() => { if (status === GameStatus.PLAYING) spawnBottles(); }, [status, spawnBottles]);
-  useEffect(() => { if (status === GameStatus.PLAYING && bottles.length > 0 && bottles.every(b => b.isBroken)) setTimeout(() => spawnBottles(), 800); }, [bottles, spawnBottles, status]);
-
-  const handleShootAt = (percX: number, percY: number) => {
-    if (status !== GameStatus.PLAYING || (ammo <= 0 && activePowerUp !== PowerUpType.RAPID_FIRE)) return;
-    const now = Date.now();
-    const currentRifle = RIFLE_BENEFITS[rifleLevel - 1] || RIFLE_BENEFITS[0];
-    const cooldown = activePowerUp === PowerUpType.RAPID_FIRE ? 80 : currentRifle.cooldown;
-    
-    if (now - lastShotTime.current < cooldown) return;
-    lastShotTime.current = now;
-    
-    onShot();
-    playSfx('shot');
-
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const absX = (percX / 100) * rect.width;
-    const absY = (percY / 100) * rect.height;
-
-    setFlash({ x: absX, y: absY });
-    setTimeout(() => setFlash(null), 50);
-
-    const hitRadius = currentRifle.radius;
-
-    setPowerUps(prev => prev.filter(p => {
-      const dist = Math.sqrt(Math.pow(p.x - percX, 2) + Math.pow(p.y - percY, 2));
-      if (dist < hitRadius * 2) {
-        onPowerUp(p.type);
-        playSfx('powerup');
-        addFloatingText(p.x, p.y, "בונוס!", "#fbbf24", true);
-        return false;
-      }
-      return true;
-    }));
-
-    setBottles((prev) => prev.map((b) => {
-      if (b.isBroken) return b;
-      const dx = Math.abs(b.x - percX);
-      const dy = Math.abs(b.y - percY);
-      
-      if (dx < hitRadius && dy < 12 && percY < b.y + 5 && percY > b.y - 15) {
-        const hitsTaken = b.hitsTaken + 1;
-        const typeData = BOTTLE_TYPES.find((t) => t.type === b.type);
-        const points = typeData?.points || 10;
-
-        if (hitsTaken >= b.hitsRequired) {
-          playSfx('break');
-          onHit(points);
-          addFloatingText(b.x, b.y - 15, `+${points}`, "#fcd34d", true);
-          setHits((h) => [...h, 
-            { id: `shard-${b.id}-${Date.now()}`, x: absX, y: absY, color: b.liquidColor, type: 'shards', delay: 0, timestamp: Date.now() },
-            { id: `liquid-${b.id}-${Date.now()}`, x: absX, y: absY, color: b.liquidColor, type: 'liquid', delay: 200, timestamp: Date.now() },
-            { id: `shock-${b.id}-${Date.now()}`, x: absX, y: absY, color: 'white', isShockwave: true, timestamp: Date.now() }
-          ]);
-          return { ...b, isBroken: true, hitsTaken, vx: (Math.random() - 0.5) * 12, vy: -15 - Math.random() * 8, rv: (Math.random() - 0.5) * 120, isHit: false };
-        } else {
-          playSfx('clink');
-          setHits((h) => [...h, { id: `shock-${b.id}-${Date.now()}`, x: absX, y: absY, color: 'rgba(255,255,255,0.4)', isShockwave: true, timestamp: Date.now() }]);
-          return { ...b, hitsTaken, isHit: true };
+      if (status === GameStatus.PLAYING) {
+        const speed = 1.5;
+        let dx = 0;
+        let dy = 0;
+        if (keysPressed.current.has('w') || keysPressed.current.has('arrowup')) dy -= speed;
+        if (keysPressed.current.has('s') || keysPressed.current.has('arrowdown')) dy += speed;
+        if (keysPressed.current.has('a') || keysPressed.current.has('arrowleft')) dx -= speed;
+        if (keysPressed.current.has('d') || keysPressed.current.has('arrowright')) dx += speed;
+        
+        if (dx !== 0 || dy !== 0) {
+          setCrosshair(prev => ({
+            x: Math.max(0, Math.min(100, prev.x + dx)),
+            y: Math.max(0, Math.min(100, prev.y + dy))
+          }));
         }
-      }
-      return b;
-    }));
 
-    setTimeout(() => {
-      setBottles(prev => prev.map(b => b.isHit ? { ...b, isHit: false } : b));
-    }, 200);
-  };
+        setBottles(prev => 
+          prev.map(b => {
+            if (!b.isBroken) return b;
+            return {
+              ...b,
+              x: b.x + b.vx * dt * timeScale,
+              y: b.y + b.vy * dt * timeScale,
+              vy: b.vy + 0.8 * dt * timeScale,
+              rotation: b.rotation + b.rv * dt * timeScale,
+            };
+          }).filter(b => b.y < 120)
+        );
+      }
+      requestRef.current = requestAnimationFrame(loop);
+    };
+    requestRef.current = requestAnimationFrame(loop);
+    return () => {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    };
+  }, [status, timeScale]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    if (status !== GameStatus.PLAYING) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     setCrosshair({
@@ -320,121 +343,135 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
     });
   };
 
-  const handleClick = () => { handleShootAt(crosshair.x, crosshair.y); };
-
-  const getBottleSvg = (b: Bottle) => {
-    const typeInfo = BOTTLE_TYPES.find(t => t.type === b.type);
-    const scale = typeInfo?.scale || 1;
-    const width = 40 * scale;
-    const height = 80 * scale;
-
-    return (
-      <div className={b.isHit && !b.isBroken ? 'hit-flash' : ''}>
-        <svg width={width} height={height} viewBox="0 0 40 80">
-          <path
-            d="M10 20 L10 10 Q10 5 15 5 L25 5 Q30 5 30 10 L30 20 L35 25 L35 75 Q35 80 30 80 L10 80 Q5 80 5 75 L5 25 Z"
-            fill={b.color}
-            stroke={b.isHit ? "#fff" : "#000"}
-            strokeWidth={b.isHit ? "5" : "2"}
-          />
-          {!b.isBroken && (
-            <rect x="8" y="30" width="24" height="40" fill={b.liquidColor} opacity="0.6" />
-          )}
-          {b.hitsRequired > 1 && !b.isBroken && (
-            <text x="20" y="55" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold" style={{ pointerEvents: 'none', filter: 'drop-shadow(2px 2px 2px black)' }}>
-              {b.hitsRequired - b.hitsTaken}
-            </text>
-          )}
-        </svg>
-      </div>
-    );
-  };
-
   return (
-    <div
+    <div 
       ref={containerRef}
-      className={`relative w-full h-[60vh] bg-stone-900 border-b-8 border-amber-900 overflow-hidden select-none transition-transform duration-75 ${shake ? 'shake-heavy' : ''}`}
+      className={`relative w-full h-[600px] bg-[url('https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&q=80')] bg-cover bg-center overflow-hidden cursor-none select-none rounded-xl border-4 border-amber-900 shadow-inner ${shake ? 'animate-shake' : ''}`}
       onMouseMove={handleMouseMove}
-      onClick={handleClick}
-      style={{
-        backgroundImage: 'linear-gradient(to bottom, rgba(0,0,0,0.5), rgba(0,0,0,0.8)), url("https://images.unsplash.com/photo-1533154683836-84ea7a0bc310?q=80&w=2000&auto=format&fit=crop")',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}
+      onClick={() => handleShootAt(crosshair.x, crosshair.y)}
     >
-      <div className="absolute top-[70%] left-0 w-full h-4 bg-amber-950 shadow-xl" />
+      <div className="absolute inset-0 bg-black/40" />
       
-      {status === GameStatus.PLAYING && (
-        <div className="absolute bottom-4 left-4 flex flex-col items-center gap-1 md:hidden z-[70] pointer-events-auto">
-          <button onPointerDown={() => keysPressed.current.add('w')} onPointerUp={() => keysPressed.current.delete('w')} onPointerLeave={() => keysPressed.current.delete('w')} className="w-12 h-12 bg-amber-900/80 rounded-lg flex items-center justify-center border border-amber-600 active:bg-amber-500 shadow-lg text-white"><ChevronUp className="w-6 h-6" /></button>
-          <div className="flex gap-1">
-            <button onPointerDown={() => keysPressed.current.add('a')} onPointerUp={() => keysPressed.current.delete('a')} onPointerLeave={() => keysPressed.current.delete('a')} className="w-12 h-12 bg-amber-900/80 rounded-lg flex items-center justify-center border border-amber-600 active:bg-amber-500 shadow-lg text-white"><ChevronLeft className="w-6 h-6" /></button>
-            <button onPointerDown={() => keysPressed.current.add('s')} onPointerUp={() => keysPressed.current.delete('s')} onPointerLeave={() => keysPressed.current.delete('s')} className="w-12 h-12 bg-amber-900/80 rounded-lg flex items-center justify-center border border-amber-600 active:bg-amber-500 shadow-lg text-white"><ChevronDown className="w-6 h-6" /></button>
-            <button onPointerDown={() => keysPressed.current.add('d')} onPointerUp={() => keysPressed.current.delete('d')} onPointerLeave={() => keysPressed.current.delete('d')} className="w-12 h-12 bg-amber-900/80 rounded-lg flex items-center justify-center border border-amber-600 active:bg-amber-500 shadow-lg text-white"><ChevronRight className="w-6 h-6" /></button>
+      <div className="absolute bottom-1/4 left-0 w-full h-8 bg-amber-950 border-y-2 border-amber-900 shadow-2xl" />
+
+      {bottles.map(b => (
+        <div
+          key={b.id}
+          className="absolute transition-transform"
+          style={{
+            left: `${b.x}%`,
+            top: `${b.y}%`,
+            transform: `translate(-50%, -100%) rotate(${b.rotation}deg)`,
+            opacity: b.isBroken ? 0.8 : 1,
+            zIndex: b.isBroken ? 10 : 20,
+          }}
+        >
+          <div className="relative group">
+            <div 
+              className={`w-8 h-20 rounded-t-lg transition-colors ${b.isHit ? 'animate-ping' : ''}`}
+              style={{ backgroundColor: b.color, border: '2px solid rgba(255,255,255,0.2)' }}
+            />
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-6 bg-inherit brightness-90 rounded-t-sm" />
+            {!b.isBroken && b.hitsRequired > 1 && (
+               <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex gap-0.5">
+                  {Array.from({ length: b.hitsRequired }).map((_, i) => (
+                    <div key={i} className={`w-2 h-2 rounded-full ${i < b.hitsTaken ? 'bg-red-500' : 'bg-white/40'}`} />
+                  ))}
+               </div>
+            )}
           </div>
-        </div>
-      )}
-
-      <div 
-        className="absolute w-10 h-10 pointer-events-none z-[60] transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
-        style={{ left: `${crosshair.x}%`, top: `${crosshair.y}%` }}
-      >
-        <div className="absolute w-full h-0.5 bg-red-600" />
-        <div className="absolute w-0.5 h-full bg-red-600" />
-        <div className="w-2 h-2 rounded-full bg-red-600 shadow-[0_0_15px_red]" />
-      </div>
-
-      {flash && (
-        <div className="absolute rounded-full bg-amber-400 opacity-70 blur-xl pointer-events-none z-50"
-          style={{ left: flash.x, top: flash.y, width: '120px', height: '120px', transform: 'translate(-50%, -50%)', mixBlendMode: 'screen' }}
-        />
-      )}
-
-      {floatingTexts.map(t => (
-        <div key={t.id} className="absolute font-rye pointer-events-none font-bold text-xl whitespace-nowrap z-50 opacity-0 flex items-center gap-2"
-          style={{ left: `${t.x}%`, top: `${t.y}%`, color: t.color, animation: 'float-up 1s ease-out forwards' }}>
-          {t.text}
-          {t.isStar && <Star className="w-6 h-6 fill-current text-yellow-400 star-celeb" />}
         </div>
       ))}
 
       {powerUps.map(p => (
-        <div key={p.id} className="absolute transform -translate-x-1/2 -translate-y-1/2 z-20"
-          style={{ left: `${p.x}%`, top: `${p.y}%`, opacity: p.life }}>
-          <div className="bg-amber-950/80 backdrop-blur-md p-3 rounded-full border-2 border-amber-400 animate-pulse shadow-[0_0_20px_rgba(251,191,36,0.6)]">
-            {p.type === PowerUpType.RAPID_FIRE ? <Zap className="text-yellow-400 w-6 h-6" /> : p.type === PowerUpType.SLOW_MO ? <Clock className="text-blue-400 w-6 h-6" /> : <Package className="text-green-400 w-6 h-6" />}
+        <div
+          key={p.id}
+          className="absolute flex flex-col items-center animate-pulse"
+          style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%, -50%)' }}
+        >
+          <div className="p-3 bg-yellow-500 rounded-full border-2 border-white shadow-lg shadow-yellow-500/50">
+            {p.type === PowerUpType.RAPID_FIRE && <Zap className="w-6 h-6 text-white" />}
+            {p.type === PowerUpType.SLOW_MO && <Clock className="w-6 h-6 text-white" />}
+            {p.type === PowerUpType.EXTRA_AMMO && <Package className="w-6 h-6 text-white" />}
           </div>
         </div>
       ))}
 
-      {bottles.map((b) => (
-        <div key={b.id} className="absolute transform -translate-x-1/2 -translate-y-full"
-          style={{ left: `${b.x}%`, top: `${b.y}%`, opacity: b.isBroken ? 0.4 : 1, transform: `translate(-50%, -100%) rotate(${b.rotation}deg)`, pointerEvents: b.isBroken ? 'none' : 'auto' }}>
-          {getBottleSvg(b)}
+      {hits.map(h => (
+        <React.Fragment key={h.id}>
+          {h.isExplosion && (
+            <div 
+              className="absolute animate-explosion rounded-full bg-orange-500/40"
+              style={{ left: h.x, top: h.y, width: 400, height: 400, transform: 'translate(-50%, -50%)' }}
+            />
+          )}
+          {h.isShockwave && (
+            <div 
+              className="absolute animate-shockwave rounded-full border-4 border-white/50"
+              style={{ left: h.x, top: h.y, width: 600, height: 600, transform: 'translate(-50%, -50%)' }}
+            />
+          )}
+          {h.isSmoke && (
+             <div 
+              className="absolute bg-stone-500/20 rounded-full blur-xl animate-smoke"
+              style={{ left: h.x, top: h.y, width: h.size, height: h.size, transform: 'translate(-50%, -50%)' }}
+            />
+          )}
+          {h.isFire && (
+             <div 
+              className="absolute bg-orange-600/30 rounded-full blur-md animate-fire"
+              style={{ left: h.x, top: h.y, width: h.size, height: h.size, transform: 'translate(-50%, -50%)' }}
+            />
+          )}
+          {!h.isExplosion && !h.isShockwave && !h.isSmoke && !h.isFire && (
+            <ParticleEffect x={h.x} y={h.y} color={h.color} type={h.type} delay={h.delay} />
+          )}
+        </React.Fragment>
+      ))}
+
+      {floatingTexts.map(t => (
+        <div
+          key={t.id}
+          className="absolute font-rye text-2xl font-bold animate-float-up flex items-center gap-2"
+          style={{ left: `${t.x}%`, top: `${t.y}%`, color: t.color, transform: 'translateX(-50%)' }}
+        >
+          {t.isStar && <Star className="w-5 h-5 fill-current" />}
+          {t.text}
         </div>
       ))}
 
-      {hits.map((h) => {
-        if (h.isExplosion) return <div key={h.id} className="absolute pointer-events-none z-50 flex items-center justify-center" style={{ left: h.x, top: h.y }}><div className="absolute w-[500px] h-[500px] bg-orange-600/40 rounded-full animate-ping" /><div className="absolute w-[300px] h-[300px] bg-yellow-400 rounded-full blur-3xl opacity-60 animate-pulse" /></div>;
-        if (h.isShockwave) return <div key={h.id} className="absolute pointer-events-none border-[8px] border-amber-100/40 rounded-full animate-shockwave" style={{ left: h.x, top: h.y }} />;
-        if (h.isSmoke) return <div key={h.id} className="absolute pointer-events-none bg-stone-600/40 rounded-full blur-2xl animate-smoke" style={{ left: h.x, top: h.y, width: h.size, height: h.size }} />;
-        if (h.isFire) return <div key={h.id} className="absolute pointer-events-none bg-orange-600 rounded-full blur-md animate-ember" style={{ left: h.x, top: h.y, width: h.size, height: h.size, boxShadow: '0 0 20px #ff8c00' }} />;
-        return <ParticleEffect key={h.id} x={h.x} y={h.y} color={h.color} type={h.type} delay={h.delay} />;
-      })}
+      {flash && (
+        <div 
+          className="absolute w-12 h-12 bg-white rounded-full blur-md opacity-60 animate-flash"
+          style={{ left: `${flash.x}%`, top: `${flash.y}%`, transform: 'translate(-50%, -50%)' }}
+        />
+      )}
 
-      <div className="absolute bottom-0 left-0 w-full h-24 overflow-hidden pointer-events-none">
-        {hits.map((h, i) => (!h.isExplosion && !h.isShockwave && !h.isSmoke && !h.isFire && h.type === 'liquid') && (
-          <div key={`puddle-${i}`} className="absolute rounded-full blur-md opacity-40 animate-pulse" style={{ left: `${(h.x / (containerRef.current?.clientWidth || 1)) * 100}%`, bottom: '-10px', width: '120px', height: '50px', backgroundColor: h.color, transform: 'translateX(-50%)' }} />
-        ))}
+      <div 
+        className="absolute pointer-events-none z-50 transition-transform duration-75"
+        style={{ left: `${crosshair.x}%`, top: `${crosshair.y}%`, transform: 'translate(-50%, -50%)' }}
+      >
+        <div className="relative">
+          {activePowerUp === PowerUpType.RAPID_FIRE && (
+            <div className="absolute w-12 h-12 rounded-full bg-yellow-400/30 border-2 border-yellow-500/50 animate-aura" style={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }} />
+          )}
+          <div className="w-10 h-10 border-2 border-red-500 rounded-full flex items-center justify-center">
+             <div className="w-1 h-1 bg-red-500 rounded-full" />
+             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 h-3 bg-red-500" />
+             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0.5 h-3 bg-red-500" />
+             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-0.5 bg-red-500" />
+             <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-0.5 bg-red-500" />
+          </div>
+          <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 flex gap-1 items-center bg-black/40 px-2 py-0.5 rounded text-[8px] font-bold text-white border border-white/20 whitespace-nowrap">
+            <span>LVL {rifleLevel}</span>
+            <div className="w-12 h-1 bg-white/20 rounded overflow-hidden">
+               <div className="h-full bg-red-500 transition-all duration-300" style={{ width: `${Math.min(100, (Date.now() - lastShotTime.current) / (RIFLE_BENEFITS[rifleLevel-1]?.cooldown || 450) * 100)}%` }} />
+            </div>
+          </div>
+        </div>
       </div>
-
-      <style>{`
-        @keyframes float-up {
-          0% { transform: translateY(0); opacity: 0; }
-          10% { opacity: 1; }
-          100% { transform: translateY(-120px); opacity: 0; }
-        }
-      `}</style>
     </div>
   );
 });
+
+GameScene.displayName = 'GameScene';

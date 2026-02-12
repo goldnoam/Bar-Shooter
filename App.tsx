@@ -3,7 +3,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GameStatus, PlayerStats, ScoreEntry, PowerUpType } from './types';
 import { INITIAL_AMMO, LEVEL_TIME, AMMO_REDUCTION_PER_LEVEL, POWER_UP_DURATION, UPGRADE_COSTS, RIFLE_BENEFITS } from './constants';
 import { GameScene, GameSceneHandle } from './components/GameScene';
-import { Target, Zap, Pause, RotateCcw, Award, Clock, Package, Bomb, Volume2, VolumeX, ChevronRight, X, Moon, Sun, Mail, Play } from 'lucide-react';
+import { HighScoreTable } from './components/HighScoreTable';
+import { getSaloonGossip } from './services/geminiService';
+import { Target, Zap, Pause, RotateCcw, Award, Clock, Package, Bomb, Volume2, VolumeX, ChevronRight, X, Moon, Sun, Mail, Play, Github } from 'lucide-react';
 
 const STATIC_GOSSIP = [
   "מי זה הבחור הזה? הוא יורה מהר יותר מהצל שלו!",
@@ -18,6 +20,7 @@ const STATIC_GOSSIP = [
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<GameStatus>(GameStatus.MENU);
+  const [showHighScores, setShowHighScores] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'sepia'>('dark');
   const [stats, setStats] = useState<PlayerStats>({
@@ -102,10 +105,13 @@ const App: React.FC = () => {
       if (e.key === 'r' || e.key === 'R') {
         startGame();
       }
+      if (e.key === 'Escape') {
+        if (showHighScores) setShowHighScores(false);
+      }
     };
     window.addEventListener('keydown', handleGlobalKeys);
     return () => window.removeEventListener('keydown', handleGlobalKeys);
-  }, [status]);
+  }, [status, showHighScores]);
 
   const startGame = () => {
     setStats({
@@ -121,6 +127,7 @@ const App: React.FC = () => {
     });
     setTimeLeft(LEVEL_TIME);
     setStatus(GameStatus.PLAYING);
+    setShowHighScores(false);
   };
 
   const nextLevel = () => {
@@ -163,10 +170,12 @@ const App: React.FC = () => {
     }
   };
 
-  const gameOver = () => {
+  // Fix: Integrated getSaloonGossip to fetch real-time reactions from Gemini.
+  const gameOver = async () => {
     setStatus(GameStatus.GAME_OVER);
     saveHighScore(stats.score);
-    setGossip(STATIC_GOSSIP[Math.floor(Math.random() * STATIC_GOSSIP.length)]);
+    const newGossip = await getSaloonGossip(stats.score, stats.level);
+    setGossip(newGossip);
   };
 
   useEffect(() => {
@@ -181,17 +190,20 @@ const App: React.FC = () => {
   return (
     <div className={`relative w-full h-screen bg-stone-900 text-stone-100 flex flex-col items-center select-none overflow-hidden transition-all duration-500`}>
       <audio ref={musicRef} loop src="https://www.soundjay.com/misc/sounds/piano-bar-ambience-1.mp3" />
-      
       <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")' }} />
       
+      <div className="w-full h-10 md:h-16 bg-black/20 flex items-center justify-center border-b border-amber-900/10 z-20">
+         <span className="text-[9px] text-stone-600 uppercase tracking-widest font-bold">Advertisement</span>
+      </div>
+
       <div className="w-full max-w-4xl p-4 flex justify-between items-center z-10 bg-black/40 backdrop-blur-sm rounded-b-xl border-x border-b border-amber-900/50 shadow-2xl">
         <div className="flex items-center gap-4">
           <div className="flex flex-col items-center px-4 py-1 bg-amber-900/20 rounded border border-amber-800">
-            <span className="text-xs text-amber-500 uppercase font-bold tracking-widest text-[10px]">שלב</span>
+            <span className="text-[10px] text-amber-500 uppercase font-bold tracking-widest">שלב</span>
             <span className="text-2xl font-rye">{stats.level}</span>
           </div>
           <div className="flex flex-col items-center px-4 py-1 bg-amber-900/20 rounded border border-amber-800">
-            <span className="text-xs text-amber-500 uppercase font-bold tracking-widest text-[10px]">זמן</span>
+            <span className="text-[10px] text-amber-500 uppercase font-bold tracking-widest">זמן</span>
             <span className={`text-2xl font-rye ${timeLeft < 10 ? 'text-red-500 animate-pulse' : ''}`}>{Math.ceil(timeLeft)}s</span>
           </div>
         </div>
@@ -208,12 +220,14 @@ const App: React.FC = () => {
 
         <div className="flex items-center gap-4">
           <div className="flex flex-col items-center px-4 py-1 bg-amber-900/20 rounded border border-amber-800">
-            <span className="text-xs text-amber-500 uppercase font-bold tracking-widest text-[10px]">זהב</span>
+            <span className="text-[10px] text-amber-500 uppercase font-bold tracking-widest">זהב</span>
             <span className="text-2xl font-rye text-yellow-400">{stats.score}</span>
           </div>
           <div className="flex flex-col items-center px-4 py-1 bg-amber-900/20 rounded border border-amber-800">
-            <span className="text-xs text-amber-500 uppercase font-bold tracking-widest text-[10px]">כדורים</span>
-            <span className={`text-2xl font-rye ${stats.ammo < 5 ? 'text-red-500' : 'text-green-500'}`}>{stats.ammo}</span>
+            <span className="text-[10px] text-amber-500 uppercase font-bold tracking-widest">כדורים</span>
+            <span className={`text-2xl font-rye ${stats.ammo < 5 ? 'text-red-500' : 'text-green-500'} ${stats.activePowerUp === PowerUpType.RAPID_FIRE ? 'animate-rapid-ammo' : ''}`}>
+              {stats.activePowerUp === PowerUpType.RAPID_FIRE ? '∞' : stats.ammo}
+            </span>
           </div>
         </div>
       </div>
@@ -233,12 +247,39 @@ const App: React.FC = () => {
           isMuted={isMuted}
         />
 
+        {showHighScores && (
+          <HighScoreTable 
+            scores={stats.highScores} 
+            onClose={() => setShowHighScores(false)} 
+          />
+        )}
+
+        {stats.grenades > 0 && status === GameStatus.PLAYING && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[70] flex flex-col items-center gap-1 animate-bounce">
+            <button 
+              onClick={useGrenade}
+              className="bg-orange-600 p-4 rounded-full border-4 border-orange-400 shadow-[0_0_20px_orange] text-white hover:bg-orange-500 transition-all active:scale-90"
+              title="השתמש ברימון (G)"
+            >
+              <Bomb className="w-8 h-8" />
+            </button>
+            <span className="bg-black/60 px-2 py-0.5 rounded text-[10px] font-bold border border-orange-500 text-orange-200 uppercase">
+              רימונים: {stats.grenades}
+            </span>
+          </div>
+        )}
+
         <div className="absolute bottom-16 left-0 w-full flex flex-col items-center z-10 opacity-70 pointer-events-none">
            <p className="text-[14px] font-mono text-stone-400 font-bold">(C) Noam Gold AI 2026</p>
-           <div className="flex items-center gap-2 text-[12px] text-stone-500">
-             <span>Send Feedback</span>
-             <Mail className="w-3 h-3" />
-             <span className="font-mono">goldnoamai@gmail.com</span>
+           <div className="flex items-center gap-4 mt-1">
+             <a href="mailto:goldnoamai@gmail.com" className="flex items-center gap-2 text-[12px] text-stone-500 pointer-events-auto hover:text-amber-500 transition-colors">
+               <Mail className="w-3 h-3" />
+               <span className="font-mono">goldnoamai@gmail.com</span>
+             </a>
+             <a href="https://github.com/NoamGold/bar-shooter" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[12px] text-stone-500 pointer-events-auto hover:text-amber-500 transition-colors">
+               <Github className="w-3 h-3" />
+               <span>GitHub</span>
+             </a>
            </div>
         </div>
 
@@ -247,7 +288,22 @@ const App: React.FC = () => {
             <div className="p-12 bg-amber-950/40 border-4 border-amber-900 rounded-3xl text-center max-w-md w-full shadow-2xl">
               <h2 className="text-6xl font-rye text-amber-500 mb-8 drop-shadow-xl animate-bounce">מטווח המסבאה</h2>
               <p className="text-lg text-amber-100 mb-10 leading-relaxed font-rye">היה היורה המהיר ביותר במערב! שבור בקבוקים, שדרג את הרובה ושבור שיאים.</p>
-              <button onClick={startGame} className="group relative px-12 py-5 bg-amber-700 hover:bg-amber-600 rounded-full text-3xl font-rye transition-all transform hover:scale-110 active:scale-95 shadow-xl border-b-4 border-amber-900 flex items-center gap-4"><Target className="w-8 h-8" /> יאללה לירות!</button>
+              
+              <div className="flex flex-col gap-4">
+                <button 
+                  onClick={startGame} 
+                  className="group relative px-12 py-5 bg-amber-700 hover:bg-amber-600 rounded-full text-3xl font-rye transition-all transform hover:scale-105 active:scale-95 shadow-xl border-b-4 border-amber-900 flex items-center justify-center gap-4"
+                >
+                  <Target className="w-8 h-8" /> יאללה לירות!
+                </button>
+                
+                <button 
+                  onClick={() => setShowHighScores(true)} 
+                  className="group relative px-8 py-3 bg-stone-800 hover:bg-stone-700 rounded-full text-xl font-rye transition-all transform hover:scale-105 active:scale-95 shadow-lg border-b-4 border-stone-950 flex items-center justify-center gap-3 text-amber-500"
+                >
+                  <Award className="w-6 h-6" /> שיאי הצלפים
+                </button>
+              </div>
               
               <div className="mt-12 flex justify-center gap-6">
                  <button onClick={() => setTheme(theme === 'dark' ? 'sepia' : 'dark')} className="flex items-center gap-2 p-3 bg-stone-800 rounded-xl border border-stone-600 hover:bg-stone-700 transition-all">
@@ -288,7 +344,7 @@ const App: React.FC = () => {
                   { id: 'grenade', name: 'צרור רימונים', cost: UPGRADE_COSTS.GRENADE, icon: <Bomb className="w-6 h-6" />, desc: '+2 רימונים למלאי' },
                   { id: 'rifle', name: 'שיפור רובה', cost: UPGRADE_COSTS.RIFLE, icon: <Target className="w-6 h-6" />, desc: stats.rifleLevel >= RIFLE_BENEFITS.length ? 'רמה מקסימלית!' : `דיוק וקצב אש` },
                 ].map((item) => (
-                  <button key={item.id} disabled={stats.score < item.cost || (item.id === 'rifle' && stats.rifleLevel >= RIFLE_BENEFITS.length)} onClick={() => { if (stats.score >= item.cost) { setStats(prev => ({ ...prev, score: prev.score - item.cost, totalAmmo: item.id === 'ammo' ? prev.totalAmmo + 15 : prev.totalAmmo, grenades: item.id === 'grenade' ? prev.grenades + 2 : prev.grenades, rifleLevel: item.id === 'rifle' ? prev.rifleLevel + 1 : prev.rifleLevel })); } }} className={`flex items-start gap-4 p-5 rounded-2xl border-2 transition-all ${(stats.score >= item.cost && !(item.id === 'rifle' && stats.rifleLevel >= RIFLE_BENEFITS.length)) ? 'bg-amber-900/30 border-amber-600 hover:bg-amber-900/50 scale-100 hover:scale-[1.02] shadow-lg' : 'bg-stone-800/40 border-stone-700 opacity-50 grayscale cursor-not-allowed'}`}><div className="p-3 bg-amber-900 rounded-lg text-amber-400">{item.icon}</div><div className="text-right flex-1"><h4 className="font-bold text-lg font-rye text-amber-100">{item.name}</h4><p className="text-xs text-stone-400 mt-1">{item.desc}</p><div className="mt-2 text-yellow-500 font-rye">$${item.cost}</div></div></button>
+                  <button key={item.id} disabled={stats.score < item.cost || (item.id === 'rifle' && stats.rifleLevel >= RIFLE_BENEFITS.length)} onClick={() => { if (stats.score >= item.cost) { setStats(prev => ({ ...prev, score: prev.score - item.cost, totalAmmo: item.id === 'ammo' ? prev.totalAmmo + 15 : prev.totalAmmo, grenades: item.id === 'grenade' ? prev.grenades + 2 : prev.grenades, rifleLevel: item.id === 'rifle' ? prev.rifleLevel + 1 : prev.rifleLevel })); } }} className={`flex items-start gap-4 p-5 rounded-2xl border-2 transition-all ${(stats.score >= item.cost && !(item.id === 'rifle' && stats.rifleLevel >= RIFLE_BENEFITS.length)) ? 'bg-amber-900/30 border-amber-600 hover:bg-amber-900/50 scale-100 hover:scale-[1.02] shadow-lg' : 'bg-stone-800/40 border-stone-700 opacity-50 grayscale cursor-not-allowed'}`}><div className="p-3 bg-amber-900 rounded-lg text-amber-400">{item.icon}</div><div className="text-right flex-1"><h4 className="font-bold text-lg font-rye text-amber-100">{item.name}</h4><p className="text-xs text-stone-400 mt-1">{item.desc}</p><div className="mt-2 text-yellow-500 font-rye">${item.cost}</div></div></button>
                 ))}
               </div>
               <div className="flex flex-col md:flex-row justify-center gap-4">
@@ -306,7 +362,7 @@ const App: React.FC = () => {
                 <div className="mb-8 text-stone-400 font-rye">הגעת לשלב {stats.level} וצברת {stats.score} נקודות</div>
                 <div className="relative p-6 bg-stone-800/80 rounded-2xl mb-10 border-r-4 border-amber-600 italic text-amber-100 font-rye text-right">
                   <span className="absolute -top-3 right-4 bg-amber-600 text-black text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">GOSSIP</span>
-                  "{gossip}"
+                  "{gossip || "מעבד את התוצאות שלך..."}"
                 </div>
                 <div className="flex gap-4 justify-center">
                   <button onClick={startGame} className="flex items-center gap-2 px-10 py-5 bg-amber-700 hover:bg-amber-600 rounded-full font-rye text-2xl transition-all hover:scale-105 active:scale-95 shadow-xl"><RotateCcw className="w-7 h-7" /> נסה שוב</button>
@@ -326,13 +382,20 @@ const App: React.FC = () => {
            <button onClick={() => setIsMuted(!isMuted)} className="p-3 bg-stone-800 hover:bg-stone-700 rounded-full border border-stone-600 shadow-lg transition-all active:scale-90">
              {isMuted ? <VolumeX className="w-6 h-6 text-red-500" /> : <Volume2 className="w-6 h-6 text-green-500" />}
            </button>
-           <button onClick={() => setTheme(theme === 'dark' ? 'sepia' : 'dark')} className="p-3 bg-stone-800 hover:bg-stone-700 rounded-full border border-stone-600 shadow-lg transition-all active:scale-90">
+           <button onClick={() => setTheme(theme === 'dark' ? 'sepia' : 'dark')} className="p-3 bg-stone-800 hover:bg-stone-700 rounded-full border border-stone-600 shadow-lg transition-all active:scale-90" title="ערכת נושא">
              {theme === 'dark' ? <Moon className="w-6 h-6 text-amber-400" /> : <Sun className="w-6 h-6 text-yellow-500" />}
+           </button>
+           <button onClick={startGame} className="p-3 bg-stone-800 hover:bg-stone-700 rounded-full border border-stone-600 shadow-lg transition-all active:scale-90" title="איפוס (R)">
+             <RotateCcw className="w-6 h-6 text-red-400" />
            </button>
         </div>
         <div className="text-stone-500 text-[10px] uppercase tracking-widest font-bold font-rye opacity-50 text-left">
            ירי: עכבר / רווח | תנועה: WASD / עכבר | הפסקה: P | איפוס: R
         </div>
+      </div>
+      
+      <div className="w-full h-8 md:h-12 bg-black/20 flex items-center justify-center border-t border-amber-900/10 z-20">
+         <span className="text-[9px] text-stone-600 uppercase tracking-widest font-bold">Advertisement</span>
       </div>
     </div>
   );
