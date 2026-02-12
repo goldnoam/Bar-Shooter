@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GameStatus, PlayerStats, ScoreEntry, PowerUpType } from './types';
 import { INITIAL_AMMO, LEVEL_TIME, AMMO_REDUCTION_PER_LEVEL, POWER_UP_DURATION, UPGRADE_COSTS, RIFLE_BENEFITS } from './constants';
 import { GameScene, GameSceneHandle } from './components/GameScene';
 import { HighScoreTable } from './components/HighScoreTable';
 import { getSaloonGossip } from './services/geminiService';
-import { Target, Zap, Pause, RotateCcw, Award, Clock, Package, Bomb, Volume2, VolumeX, ChevronRight, X, Moon, Sun, Mail, Play, Github, Music } from 'lucide-react';
+import { Target, Zap, Pause, RotateCcw, Award, Clock, Package, Bomb, Volume2, VolumeX, ChevronRight, X, Moon, Sun, Mail, Play, Github, Music, Sparkles } from 'lucide-react';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<GameStatus>(GameStatus.MENU);
@@ -12,7 +13,9 @@ const App: React.FC = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'sepia'>('dark');
   const [partyMode, setPartyMode] = useState(false);
+  const [easterEggActive, setEasterEggActive] = useState(false);
   const [eggCount, setEggCount] = useState(0);
+  const keyBuffer = useRef<string>('');
   
   const [stats, setStats] = useState<PlayerStats>({
     score: 0,
@@ -35,7 +38,7 @@ const App: React.FC = () => {
       const next = prev + 1;
       if (next >= 5) {
         setPartyMode(true);
-        setTimeout(() => setPartyMode(false), 20000); // 20 seconds of party!
+        setTimeout(() => setPartyMode(false), 20000); 
         return 0;
       }
       return next;
@@ -63,14 +66,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (musicRef.current) {
-      musicRef.current.volume = partyMode ? 0.5 : 0.2;
+      musicRef.current.volume = (partyMode || easterEggActive) ? 0.5 : 0.2;
       if (status === GameStatus.PLAYING && !isMuted) {
         musicRef.current.play().catch(() => {});
       } else {
         musicRef.current.pause();
       }
     }
-  }, [status, isMuted, partyMode]);
+  }, [status, isMuted, partyMode, easterEggActive]);
 
   useEffect(() => {
     let timer: number;
@@ -101,6 +104,13 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleGlobalKeys = (e: KeyboardEvent) => {
+      keyBuffer.current = (keyBuffer.current + e.key.toUpperCase()).slice(-4);
+      if (keyBuffer.current === 'GOLD') {
+        setEasterEggActive(true);
+        setStats(prev => ({ ...prev, ammo: 999 }));
+        setTimeout(() => setEasterEggActive(false), 15000);
+      }
+
       if (e.key === 'p' || e.key === 'P') {
         if (status === GameStatus.PLAYING) setStatus(GameStatus.PAUSED);
         else if (status === GameStatus.PAUSED) setStatus(GameStatus.PLAYING);
@@ -131,6 +141,7 @@ const App: React.FC = () => {
     setTimeLeft(LEVEL_TIME);
     setStatus(GameStatus.PLAYING);
     setShowHighScores(false);
+    setEasterEggActive(false);
   };
 
   const nextLevel = () => {
@@ -149,13 +160,13 @@ const App: React.FC = () => {
 
   const handleShot = () => {
     if (stats.ammo > 0) {
-      if (stats.activePowerUp === PowerUpType.RAPID_FIRE) return;
+      if (stats.activePowerUp === PowerUpType.RAPID_FIRE || easterEggActive) return;
       setStats(prev => ({ ...prev, ammo: prev.ammo - 1 }));
     }
   };
 
   const handleHit = (points: number) => {
-    const multiplier = partyMode ? 2 : 1;
+    const multiplier = (partyMode || easterEggActive) ? 2 : 1;
     setStats(prev => ({ ...prev, score: prev.score + (points * multiplier) }));
   };
 
@@ -182,16 +193,16 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (stats.ammo === 0 && status === GameStatus.PLAYING && !stats.activePowerUp) {
+    if (stats.ammo === 0 && status === GameStatus.PLAYING && !stats.activePowerUp && !easterEggActive) {
       const timeout = setTimeout(() => {
         if (status === GameStatus.PLAYING) gameOver();
       }, 2000);
       return () => clearTimeout(timeout);
     }
-  }, [stats.ammo, status, stats.activePowerUp]);
+  }, [stats.ammo, status, stats.activePowerUp, easterEggActive]);
 
   return (
-    <div className={`relative w-full h-screen bg-stone-900 text-stone-100 flex flex-col items-center select-none overflow-hidden transition-all duration-500 ${partyMode ? 'animate-party-bg' : ''}`}>
+    <div className={`relative w-full h-screen bg-stone-900 text-stone-100 flex flex-col items-center select-none overflow-hidden transition-all duration-500 ${partyMode ? 'animate-party-bg' : ''} ${easterEggActive ? 'bg-amber-500/10' : ''}`}>
       <audio ref={musicRef} loop src={partyMode ? "https://assets.mixkit.co/active_storage/sfx/2092/2092-preview.mp3" : "https://www.soundjay.com/misc/sounds/piano-bar-ambience-1.mp3"} />
       <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")' }} />
       
@@ -199,8 +210,8 @@ const App: React.FC = () => {
         onClick={triggerEasterEgg}
         className="w-full h-10 md:h-16 bg-black/20 flex items-center justify-center border-b border-amber-900/10 z-20 cursor-pointer hover:bg-black/30 transition-colors"
       >
-         <span className={`text-[9px] uppercase tracking-widest font-bold ${partyMode ? 'text-yellow-400 animate-pulse' : 'text-stone-600'}`}>
-           {partyMode ? 'SALOON PARTY ACTIVE! x2 SCORE' : 'Advertisement'}
+         <span className={`text-[9px] uppercase tracking-widest font-bold ${partyMode || easterEggActive ? 'text-yellow-400 animate-pulse' : 'text-stone-600'}`}>
+           {easterEggActive ? 'GOLDEN SHERIFF MODE ACTIVE!' : (partyMode ? 'SALOON PARTY ACTIVE! x2 SCORE' : 'Advertisement')}
          </span>
       </div>
 
@@ -218,10 +229,10 @@ const App: React.FC = () => {
         
         <div className="flex flex-col items-center gap-1">
           <h1 className="text-3xl font-rye text-amber-600 drop-shadow-lg hidden md:block">המסבאה המקוללת</h1>
-          {stats.activePowerUp && (
+          {(stats.activePowerUp || easterEggActive) && (
             <div className="flex items-center gap-2 bg-yellow-500/20 px-3 py-0.5 rounded-full border border-yellow-500/50 animate-pulse">
-              <Zap className="w-3 h-3 text-yellow-400" />
-              <span className="text-[10px] font-bold uppercase">{stats.activePowerUp.replace('_', ' ')}</span>
+              {easterEggActive ? <Sparkles className="w-3 h-3 text-amber-400" /> : <Zap className="w-3 h-3 text-yellow-400" />}
+              <span className="text-[10px] font-bold uppercase">{easterEggActive ? 'GOLDEN RUSH' : stats.activePowerUp?.replace('_', ' ')}</span>
             </div>
           )}
           {partyMode && (
@@ -239,8 +250,8 @@ const App: React.FC = () => {
           </div>
           <div className="flex flex-col items-center px-4 py-1 bg-amber-900/20 rounded border border-amber-800">
             <span className="text-[10px] text-amber-500 uppercase font-bold tracking-widest">כדורים</span>
-            <span className={`text-2xl font-rye ${stats.ammo < 5 ? 'text-red-500' : 'text-green-500'} ${stats.activePowerUp === PowerUpType.RAPID_FIRE ? 'animate-rapid-ammo' : ''}`}>
-              {stats.activePowerUp === PowerUpType.RAPID_FIRE ? '∞' : stats.ammo}
+            <span className={`text-2xl font-rye ${stats.ammo < 5 ? 'text-red-500' : 'text-green-500'} ${(stats.activePowerUp === PowerUpType.RAPID_FIRE || easterEggActive) ? 'animate-rapid-ammo' : ''}`}>
+              {(stats.activePowerUp === PowerUpType.RAPID_FIRE || easterEggActive) ? '∞' : stats.ammo}
             </span>
           </div>
         </div>
@@ -390,8 +401,8 @@ const App: React.FC = () => {
         onClick={triggerEasterEgg}
         className="w-full h-8 md:h-12 bg-black/20 flex items-center justify-center border-t border-amber-900/10 z-20 cursor-pointer"
       >
-         <span className={`text-[9px] uppercase tracking-widest font-bold ${partyMode ? 'text-yellow-400 animate-pulse' : 'text-stone-600'}`}>
-           {partyMode ? 'YEAH! PARTY ON!' : 'Advertisement'}
+         <span className={`text-[9px] uppercase tracking-widest font-bold ${partyMode || easterEggActive ? 'text-yellow-400 animate-pulse' : 'text-stone-600'}`}>
+           {partyMode || easterEggActive ? 'YEAH! PARTY ON!' : 'Advertisement'}
          </span>
       </div>
       
@@ -413,7 +424,7 @@ const App: React.FC = () => {
            </button>
         </div>
         <div className="text-stone-500 text-[10px] uppercase tracking-widest font-bold font-rye opacity-50 text-left">
-           ירי: עכבר / רווח | תנועה: WASD / עכבר | הפסקה: P | איפוס: R
+           ירי: עכבר / רווח | תנועה: WASD / עכבר | הפסקה: P | איפוס: R | סוד: G-O-L-D
         </div>
       </div>
     </div>

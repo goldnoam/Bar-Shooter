@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { Bottle, GameStatus, PowerUp, PowerUpType } from '../types';
 import { BOTTLE_TYPES, RIFLE_BENEFITS } from '../constants';
@@ -117,15 +118,17 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
           
           const px = (b.x / 100) * rect.width;
           const py = (b.y / 100) * rect.height;
+          
+          // DRAMATIC SHARDING: Multi-stage effects
           setHits(h => [...h, 
             { id: Math.random().toString(), x: px, y: py, color: b.color, type: 'shards', timestamp: Date.now() },
-            // Increased delay to 300ms for more dynamic liquid spill
-            { id: Math.random().toString(), x: px, y: py, color: b.liquidColor, type: 'liquid', delay: 300, timestamp: Date.now() },
-            { id: Math.random().toString(), x: px, y: py, color: '#fbbf24', type: 'gold', delay: 10, timestamp: Date.now() },
-            { id: Math.random().toString(), x: px, y: py, color: '#fde047', type: 'star', delay: 20, timestamp: Date.now() }
+            // INCREASED DELAY for liquid spill - makes breaking feel more mechanical and satisfying
+            { id: Math.random().toString(), x: px, y: py, color: b.liquidColor, type: 'liquid', delay: 450, timestamp: Date.now() },
+            { id: Math.random().toString(), x: px, y: py, color: '#fbbf24', type: 'gold', delay: 20, timestamp: Date.now() },
+            { id: Math.random().toString(), x: px, y: py, color: '#fde047', type: 'star', delay: 40, timestamp: Date.now() }
           ]);
           
-          return { ...b, isBroken: true, hitsTaken: newHitsTaken, vx: (Math.random() - 0.5) * 10, vy: -15, rv: (Math.random() - 0.5) * 20 };
+          return { ...b, isBroken: true, hitsTaken: newHitsTaken, vx: (Math.random() - 0.5) * 15, vy: -20, rv: (Math.random() - 0.5) * 40 };
         } else {
           playSfx('clink');
           return { ...b, hitsTaken: newHitsTaken, isHit: true };
@@ -271,7 +274,7 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
           
           grenadeHits.push(
             { id: `g-shard-${b.id}-${timestamp}`, x: bx, y: by, color: b.color, type: 'shards', timestamp },
-            { id: `g-liq-${b.id}-${timestamp}`, x: bx, y: by, color: b.liquidColor, type: 'liquid', delay: 350, timestamp },
+            { id: `g-liq-${b.id}-${timestamp}`, x: bx, y: by, color: b.liquidColor, type: 'liquid', delay: 450, timestamp },
             { id: `g-gold-${b.id}-${timestamp}`, x: bx, y: by, color: '#fbbf24', type: 'gold', timestamp },
             { id: `g-star-${b.id}-${timestamp}`, x: bx, y: by, color: '#fde047', type: 'star', timestamp }
           );
