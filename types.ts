@@ -1,4 +1,3 @@
-
 export enum GameStatus {
   MENU = 'MENU',
   PLAYING = 'PLAYING',
@@ -22,6 +21,7 @@ export interface Bottle {
   isHit: boolean;
   hitsRequired: number;
   hitsTaken: number;
+  scale: number;
   offScreen?: boolean;
 }
 

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { Bottle, GameStatus, PowerUp, PowerUpType } from '../types';
 import { BOTTLE_TYPES, RIFLE_BENEFITS } from '../constants';
@@ -195,6 +194,7 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
         isHit: false,
         hitsRequired: typeInfo.hits,
         hitsTaken: 0,
+        scale: typeInfo.scale,
       });
     }
     setBottles(newBottles);
@@ -364,7 +364,7 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
           style={{
             left: `${b.x}%`,
             top: `${b.y}%`,
-            transform: `translate(-50%, -100%) rotate(${b.rotation}deg)`,
+            transform: `translate(-50%, -100%) rotate(${b.rotation}deg) scale(${b.scale || 1})`,
             opacity: b.isBroken ? 0.8 : 1,
             zIndex: b.isBroken ? 10 : 20,
           }}
