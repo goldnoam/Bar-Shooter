@@ -33,31 +33,32 @@ export const ParticleEffect: React.FC<ParticleProps> = ({ x, y, color, type = 'l
     if (!active) return;
 
     let count = 14;
-    if (type === 'liquid') count = 25;
+    if (type === 'liquid') count = 28;
     if (type === 'gold') count = 15;
     if (type === 'star') count = 10;
-    if (type === 'shards') count = 18;
+    if (type === 'shards') count = 24;
 
     const newParticles: EnhancedParticle[] = Array.from({ length: count }).map((_, i) => {
-      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 1.5;
+      // Dynamic spread for shards
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 2.0;
       let speed = Math.random() * 5 + 2;
       
-      if (type === 'shards') speed = Math.random() * 15 + 8;
+      if (type === 'shards') speed = Math.random() * 18 + 10; // More explosive shards
       if (type === 'gold') speed = Math.random() * 10 + 5;
       if (type === 'star') speed = Math.random() * 6 + 3;
-      if (type === 'liquid') speed = Math.random() * 4 + 1;
+      if (type === 'liquid') speed = Math.random() * 4 + 1.5;
       
       return {
         id: Math.random().toString(),
         x,
         y,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - (type === 'shards' ? 12 : type === 'gold' ? 12 : type === 'star' ? 15 : type === 'liquid' ? 5 : 3),
+        vy: Math.sin(angle) * speed - (type === 'shards' ? 14 : type === 'gold' ? 12 : type === 'star' ? 15 : type === 'liquid' ? 6 : 3),
         color: type === 'gold' ? '#fbbf24' : (type === 'star' ? '#fde047' : (type === 'shards' ? '#f8fafc' : color)), 
         life: 1.0,
         rotation: Math.random() * 360,
-        rv: (Math.random() - 0.5) * 120,
-        size: type === 'shards' ? Math.random() * 10 + 4 : (type === 'gold' ? 10 : type === 'star' ? 12 : Math.random() * 12 + 6),
+        rv: (Math.random() - 0.5) * 150, // Faster rotation for dynamic look
+        size: type === 'shards' ? Math.random() * 12 + 2 : (type === 'gold' ? 10 : type === 'star' ? 12 : Math.random() * 14 + 6),
         opacity: 1,
         scale: 1,
         isStar: type === 'star',
@@ -72,12 +73,12 @@ export const ParticleEffect: React.FC<ParticleProps> = ({ x, y, color, type = 'l
             ...p,
             x: p.x + p.vx,
             y: p.y + p.vy,
-            vy: p.vy + (type === 'shards' ? 0.8 : type === 'gold' ? 0.4 : type === 'star' ? 0.3 : 0.25), 
-            vx: p.vx * (type === 'liquid' ? 0.95 : 0.98), 
+            vy: p.vy + (type === 'shards' ? 0.9 : type === 'gold' ? 0.4 : type === 'star' ? 0.3 : 0.3), 
+            vx: p.vx * (type === 'liquid' ? 0.94 : 0.98), 
             rotation: p.rotation + p.rv,
-            life: p.life - (type === 'shards' ? 0.015 : type === 'gold' ? 0.02 : type === 'star' ? 0.025 : 0.02),
+            life: p.life - (type === 'shards' ? 0.012 : type === 'gold' ? 0.02 : type === 'star' ? 0.025 : 0.018),
             opacity: Math.max(0, p.life),
-            scale: (type === 'liquid' || type === 'star') ? p.life * 1.8 : p.life,
+            scale: (type === 'liquid' || type === 'star') ? p.life * 2.0 : p.life,
           }))
           .filter((p) => p.life > 0)
       );
@@ -106,10 +107,10 @@ export const ParticleEffect: React.FC<ParticleProps> = ({ x, y, color, type = 'l
             clipPath: p.isStar 
               ? 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)' 
               : (type === 'shards' 
-                ? `polygon(${Math.random() * 30}% 0%, 100% ${Math.random() * 30}%, ${70 + Math.random() * 30}% 100%, 0% ${70 + Math.random() * 30}%)` 
+                ? `polygon(${Math.random() * 40}% 0%, 100% ${Math.random() * 40}%, ${60 + Math.random() * 40}% 100%, 0% ${60 + Math.random() * 40}%)` 
                 : 'none'),
-            boxShadow: type === 'gold' ? '0 0 10px #d97706, inset 0 0 5px white' : (p.isStar ? 'none' : (type === 'shards' ? '0 0 6px rgba(255,255,255,0.6)' : 'none')),
-            border: type === 'gold' ? '2px solid #92400e' : (type === 'shards' ? '1px solid rgba(255,255,255,0.4)' : 'none'),
+            boxShadow: type === 'gold' ? '0 0 10px #d97706, inset 0 0 5px white' : (p.isStar ? 'none' : (type === 'shards' ? '0 0 8px rgba(255,255,255,0.7)' : 'none')),
+            border: type === 'gold' ? '2px solid #92400e' : (type === 'shards' ? '1px solid rgba(255,255,255,0.5)' : 'none'),
             background: p.isStar ? p.color : undefined,
           }}
         >
