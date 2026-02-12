@@ -94,7 +94,8 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
     const interval = setInterval(() => {
       const now = Date.now();
       setHits(prev => prev.filter(h => {
-        if (h.isFire) return now - h.timestamp < 4000;
+        if (h.isFire) return now - h.timestamp < 3000;
+        if (h.isSmoke) return now - h.timestamp < 3000;
         return now - h.timestamp < 3000;
       }));
     }, 1000);
@@ -153,10 +154,37 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
       if (!rect) return;
       const cx = rect.width / 2;
       const cy = rect.height * 0.7;
-      addFloatingText(50, 40, "BOOM!", "#ff4500");
+      addFloatingText(50, 40, "פיצוץ מסיבי!", "#ff4500");
       
       const timestamp = Date.now();
-      setHits(prev => [...prev, { id: 'grenade-' + timestamp, x: cx, y: cy, color: '#ff4500', isExplosion: true, timestamp }]);
+      const grenadeHits: HitEffect[] = [
+        { id: 'grenade-' + timestamp, x: cx, y: cy, color: '#ff4500', isExplosion: true, timestamp },
+        { id: 'shock-' + timestamp, x: cx, y: cy, color: 'white', isShockwave: true, timestamp }
+      ];
+
+      // Add smoke and fire visuals
+      for (let i = 0; i < 15; i++) {
+        grenadeHits.push({
+          id: `smoke-${i}-${timestamp}`,
+          x: cx + (Math.random() - 0.5) * 200,
+          y: cy + (Math.random() - 0.5) * 100,
+          color: '#555',
+          isSmoke: true,
+          timestamp,
+          size: 40 + Math.random() * 80
+        });
+        grenadeHits.push({
+          id: `fire-${i}-${timestamp}`,
+          x: cx + (Math.random() - 0.5) * 150,
+          y: cy + (Math.random() - 0.5) * 50,
+          color: '#ff8c00',
+          isFire: true,
+          timestamp,
+          size: 15 + Math.random() * 30
+        });
+      }
+
+      setHits(prev => [...prev, ...grenadeHits]);
       
       setBottles(prev => prev.map(b => {
         if (b.isBroken) return b;
@@ -164,11 +192,10 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
         const bx = (b.x / 100) * rect.width;
         const by = (b.y / 100) * rect.height;
         setHits(h => [...h, 
-          { id: `shard-${b.id}`, x: bx, y: by, color: b.liquidColor, type: 'shards', delay: 0, timestamp: Date.now() },
-          { id: `liquid-${b.id}`, x: bx, y: by, color: b.liquidColor, type: 'liquid', delay: 200, timestamp: Date.now() },
-          { id: `shock-${b.id}`, x: bx, y: by, color: 'white', isShockwave: true, timestamp: Date.now() }
+          { id: `shard-${b.id}-${timestamp}`, x: bx, y: by, color: b.liquidColor, type: 'shards', delay: 0, timestamp },
+          { id: `liquid-${b.id}-${timestamp}`, x: bx, y: by, color: b.liquidColor, type: 'liquid', delay: 200, timestamp }
         ]);
-        return { ...b, isBroken: true, hitsTaken: b.hitsRequired, vx: (Math.random() - 0.5) * 25, vy: -15 - Math.random() * 20, rv: (Math.random() - 0.5) * 200 };
+        return { ...b, isBroken: true, hitsTaken: b.hitsRequired, vx: (Math.random() - 0.5) * 35, vy: -20 - Math.random() * 25, rv: (Math.random() - 0.5) * 400 };
       }));
     }
   }));
@@ -179,7 +206,6 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
       return;
     }
 
-    // WASD Movement
     const speed = 1.5;
     let dx = 0;
     let dy = 0;
@@ -236,7 +262,7 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
     const absY = (percY / 100) * rect.height;
 
     setFlash({ x: absX, y: absY });
-    setTimeout(() => setFlash(null), activePowerUp === PowerUpType.RAPID_FIRE ? 30 : 50);
+    setTimeout(() => setFlash(null), 50);
 
     const hitRadius = currentRifle.radius;
 
@@ -245,7 +271,7 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
       if (dist < hitRadius * 2) {
         onPowerUp(p.type);
         playSfx('powerup');
-        addFloatingText(p.x, p.y, "BONUS!", "#fbbf24");
+        addFloatingText(p.x, p.y, "בונוס!", "#fbbf24", true);
         return false;
       }
       return true;
@@ -264,27 +290,25 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
         if (hitsTaken >= b.hitsRequired) {
           playSfx('break');
           onHit(points);
-          addFloatingText(b.x, b.y - 10, `+${points}`, "#fcd34d", true);
+          addFloatingText(b.x, b.y - 15, `+${points}`, "#fcd34d", true);
           setHits((h) => [...h, 
             { id: `shard-${b.id}-${Date.now()}`, x: absX, y: absY, color: b.liquidColor, type: 'shards', delay: 0, timestamp: Date.now() },
             { id: `liquid-${b.id}-${Date.now()}`, x: absX, y: absY, color: b.liquidColor, type: 'liquid', delay: 200, timestamp: Date.now() },
             { id: `shock-${b.id}-${Date.now()}`, x: absX, y: absY, color: 'white', isShockwave: true, timestamp: Date.now() }
           ]);
-          return { ...b, isBroken: true, hitsTaken, vx: (Math.random() - 0.5) * 8, vy: -12 - Math.random() * 5, rv: (Math.random() - 0.5) * 60, isHit: false };
+          return { ...b, isBroken: true, hitsTaken, vx: (Math.random() - 0.5) * 12, vy: -15 - Math.random() * 8, rv: (Math.random() - 0.5) * 120, isHit: false };
         } else {
           playSfx('clink');
-          setHits((h) => [...h, { id: `shock-${b.id}-${Date.now()}`, x: absX, y: absY, color: 'rgba(255,255,255,0.3)', isShockwave: true, timestamp: Date.now() }]);
-          // Temporary "isHit" for visual flash
+          setHits((h) => [...h, { id: `shock-${b.id}-${Date.now()}`, x: absX, y: absY, color: 'rgba(255,255,255,0.4)', isShockwave: true, timestamp: Date.now() }]);
           return { ...b, hitsTaken, isHit: true };
         }
       }
       return b;
     }));
 
-    // Reset isHit after a short delay for animation
     setTimeout(() => {
       setBottles(prev => prev.map(b => b.isHit ? { ...b, isHit: false } : b));
-    }, 150);
+    }, 200);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -296,9 +320,7 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
     });
   };
 
-  const handleClick = () => {
-    handleShootAt(crosshair.x, crosshair.y);
-  };
+  const handleClick = () => { handleShootAt(crosshair.x, crosshair.y); };
 
   const getBottleSvg = (b: Bottle) => {
     const typeInfo = BOTTLE_TYPES.find(t => t.type === b.type);
@@ -307,19 +329,19 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
     const height = 80 * scale;
 
     return (
-      <div className={b.isHit ? 'hit-flash' : ''}>
+      <div className={b.isHit && !b.isBroken ? 'hit-flash' : ''}>
         <svg width={width} height={height} viewBox="0 0 40 80">
           <path
             d="M10 20 L10 10 Q10 5 15 5 L25 5 Q30 5 30 10 L30 20 L35 25 L35 75 Q35 80 30 80 L10 80 Q5 80 5 75 L5 25 Z"
             fill={b.color}
             stroke={b.isHit ? "#fff" : "#000"}
-            strokeWidth={b.isHit ? "4" : "2"}
+            strokeWidth={b.isHit ? "5" : "2"}
           />
           {!b.isBroken && (
             <rect x="8" y="30" width="24" height="40" fill={b.liquidColor} opacity="0.6" />
           )}
           {b.hitsRequired > 1 && !b.isBroken && (
-            <text x="20" y="55" textAnchor="middle" fill="white" fontSize="14" fontWeight="bold" style={{ pointerEvents: 'none', filter: 'drop-shadow(1px 1px 1px black)' }}>
+            <text x="20" y="55" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold" style={{ pointerEvents: 'none', filter: 'drop-shadow(2px 2px 2px black)' }}>
               {b.hitsRequired - b.hitsTaken}
             </text>
           )}
@@ -342,121 +364,67 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
     >
       <div className="absolute top-[70%] left-0 w-full h-4 bg-amber-950 shadow-xl" />
       
-      {/* Mobile WASD Controls */}
       {status === GameStatus.PLAYING && (
         <div className="absolute bottom-4 left-4 flex flex-col items-center gap-1 md:hidden z-[70] pointer-events-auto">
-          <button 
-            onPointerDown={() => keysPressed.current.add('w')} 
-            onPointerUp={() => keysPressed.current.delete('w')}
-            onPointerLeave={() => keysPressed.current.delete('w')}
-            className="w-12 h-12 bg-amber-900/80 rounded-lg flex items-center justify-center border border-amber-600 active:bg-amber-500 shadow-lg text-white font-bold"
-          >
-            <ChevronUp className="w-6 h-6" />
-          </button>
+          <button onPointerDown={() => keysPressed.current.add('w')} onPointerUp={() => keysPressed.current.delete('w')} onPointerLeave={() => keysPressed.current.delete('w')} className="w-12 h-12 bg-amber-900/80 rounded-lg flex items-center justify-center border border-amber-600 active:bg-amber-500 shadow-lg text-white"><ChevronUp className="w-6 h-6" /></button>
           <div className="flex gap-1">
-            <button 
-              onPointerDown={() => keysPressed.current.add('a')} 
-              onPointerUp={() => keysPressed.current.delete('a')}
-              onPointerLeave={() => keysPressed.current.delete('a')}
-              className="w-12 h-12 bg-amber-900/80 rounded-lg flex items-center justify-center border border-amber-600 active:bg-amber-500 shadow-lg text-white font-bold"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-            <button 
-              onPointerDown={() => keysPressed.current.add('s')} 
-              onPointerUp={() => keysPressed.current.delete('s')}
-              onPointerLeave={() => keysPressed.current.delete('s')}
-              className="w-12 h-12 bg-amber-900/80 rounded-lg flex items-center justify-center border border-amber-600 active:bg-amber-500 shadow-lg text-white font-bold"
-            >
-              <ChevronDown className="w-6 h-6" />
-            </button>
-            <button 
-              onPointerDown={() => keysPressed.current.add('d')} 
-              onPointerUp={() => keysPressed.current.delete('d')}
-              onPointerLeave={() => keysPressed.current.delete('d')}
-              className="w-12 h-12 bg-amber-900/80 rounded-lg flex items-center justify-center border border-amber-600 active:bg-amber-500 shadow-lg text-white font-bold"
-            >
-              <ChevronRight className="w-6 h-6" />
-            </button>
+            <button onPointerDown={() => keysPressed.current.add('a')} onPointerUp={() => keysPressed.current.delete('a')} onPointerLeave={() => keysPressed.current.delete('a')} className="w-12 h-12 bg-amber-900/80 rounded-lg flex items-center justify-center border border-amber-600 active:bg-amber-500 shadow-lg text-white"><ChevronLeft className="w-6 h-6" /></button>
+            <button onPointerDown={() => keysPressed.current.add('s')} onPointerUp={() => keysPressed.current.delete('s')} onPointerLeave={() => keysPressed.current.delete('s')} className="w-12 h-12 bg-amber-900/80 rounded-lg flex items-center justify-center border border-amber-600 active:bg-amber-500 shadow-lg text-white"><ChevronDown className="w-6 h-6" /></button>
+            <button onPointerDown={() => keysPressed.current.add('d')} onPointerUp={() => keysPressed.current.delete('d')} onPointerLeave={() => keysPressed.current.delete('d')} className="w-12 h-12 bg-amber-900/80 rounded-lg flex items-center justify-center border border-amber-600 active:bg-amber-500 shadow-lg text-white"><ChevronRight className="w-6 h-6" /></button>
           </div>
         </div>
       )}
 
-      {/* Visual Crosshair for WASD mode / mouse feedback */}
       <div 
-        className="absolute w-8 h-8 pointer-events-none z-[60] transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
+        className="absolute w-10 h-10 pointer-events-none z-[60] transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
         style={{ left: `${crosshair.x}%`, top: `${crosshair.y}%` }}
       >
-        <div className="absolute w-full h-0.5 bg-red-500/50" />
-        <div className="absolute w-0.5 h-full bg-red-500/50" />
-        <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_red]" />
+        <div className="absolute w-full h-0.5 bg-red-600" />
+        <div className="absolute w-0.5 h-full bg-red-600" />
+        <div className="w-2 h-2 rounded-full bg-red-600 shadow-[0_0_15px_red]" />
       </div>
 
       {flash && (
-        <div 
-          className="absolute rounded-full bg-yellow-400 opacity-60 blur-md pointer-events-none z-50"
-          style={{ 
-            left: flash.x, 
-            top: flash.y, 
-            width: activePowerUp === PowerUpType.RAPID_FIRE ? '140px' : '100px', 
-            height: activePowerUp === PowerUpType.RAPID_FIRE ? '140px' : '100px', 
-            transform: 'translate(-50%, -50%)',
-            mixBlendMode: 'screen'
-          }}
+        <div className="absolute rounded-full bg-amber-400 opacity-70 blur-xl pointer-events-none z-50"
+          style={{ left: flash.x, top: flash.y, width: '120px', height: '120px', transform: 'translate(-50%, -50%)', mixBlendMode: 'screen' }}
         />
       )}
 
       {floatingTexts.map(t => (
-        <div
-          key={t.id}
-          className="absolute font-rye pointer-events-none font-bold text-lg whitespace-nowrap z-50 opacity-0 flex items-center gap-1"
-          style={{ left: `${t.x}%`, top: `${t.y}%`, color: t.color, animation: 'float-up 1s ease-out forwards' }}
-        >
+        <div key={t.id} className="absolute font-rye pointer-events-none font-bold text-xl whitespace-nowrap z-50 opacity-0 flex items-center gap-2"
+          style={{ left: `${t.x}%`, top: `${t.y}%`, color: t.color, animation: 'float-up 1s ease-out forwards' }}>
           {t.text}
-          {t.isStar && <Star className="w-4 h-4 fill-current text-yellow-400 animate-spin" />}
+          {t.isStar && <Star className="w-6 h-6 fill-current text-yellow-400 star-celeb" />}
         </div>
       ))}
 
       {powerUps.map(p => (
-        <div 
-          key={p.id}
-          className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer z-20"
-          style={{ left: `${p.x}%`, top: `${p.y}%`, opacity: p.life }}
-        >
-          <div className="relative">
-            <div className="absolute inset-0 bg-amber-400/20 rounded-full animate-ping scale-150" />
-            <div className="bg-amber-950/80 backdrop-blur-md p-3 rounded-full border-2 border-amber-400 animate-pulse shadow-[0_0_20px_rgba(251,191,36,0.6)]">
-              {p.type === PowerUpType.RAPID_FIRE ? <Zap className="text-yellow-400 w-6 h-6" /> : p.type === PowerUpType.SLOW_MO ? <Clock className="text-blue-400 w-6 h-6" /> : <Package className="text-green-400 w-6 h-6" />}
-            </div>
+        <div key={p.id} className="absolute transform -translate-x-1/2 -translate-y-1/2 z-20"
+          style={{ left: `${p.x}%`, top: `${p.y}%`, opacity: p.life }}>
+          <div className="bg-amber-950/80 backdrop-blur-md p-3 rounded-full border-2 border-amber-400 animate-pulse shadow-[0_0_20px_rgba(251,191,36,0.6)]">
+            {p.type === PowerUpType.RAPID_FIRE ? <Zap className="text-yellow-400 w-6 h-6" /> : p.type === PowerUpType.SLOW_MO ? <Clock className="text-blue-400 w-6 h-6" /> : <Package className="text-green-400 w-6 h-6" />}
           </div>
         </div>
       ))}
 
       {bottles.map((b) => (
-        <div
-          key={b.id}
-          className="absolute transform -translate-x-1/2 -translate-y-full"
-          style={{
-            left: `${b.x}%`,
-            top: `${b.y}%`,
-            opacity: b.isBroken ? 0.4 : 1,
-            transform: `translate(-50%, -100%) rotate(${b.rotation}deg)`,
-            pointerEvents: b.isBroken ? 'none' : 'auto',
-          }}
-        >
+        <div key={b.id} className="absolute transform -translate-x-1/2 -translate-y-full"
+          style={{ left: `${b.x}%`, top: `${b.y}%`, opacity: b.isBroken ? 0.4 : 1, transform: `translate(-50%, -100%) rotate(${b.rotation}deg)`, pointerEvents: b.isBroken ? 'none' : 'auto' }}>
           {getBottleSvg(b)}
         </div>
       ))}
 
       {hits.map((h) => {
-        if (h.isExplosion) return <div key={h.id} className="absolute pointer-events-none z-50 flex items-center justify-center" style={{ left: h.x, top: h.y }}><div className="absolute w-[400px] h-[400px] bg-orange-600/30 rounded-full animate-ping" /><div className="absolute w-[250px] h-[250px] bg-yellow-400 rounded-full blur-3xl opacity-60 animate-pulse" /></div>;
-        if (h.isShockwave) return <React.Fragment key={h.id}><div className="absolute pointer-events-none border-[4px] border-amber-100/60 rounded-full animate-shockwave" style={{ left: h.x, top: h.y }} /><div className="absolute pointer-events-none w-8 h-8 bg-amber-200/20 rounded-full blur-xl animate-dust" style={{ left: h.x, top: h.y }} /></React.Fragment>;
+        if (h.isExplosion) return <div key={h.id} className="absolute pointer-events-none z-50 flex items-center justify-center" style={{ left: h.x, top: h.y }}><div className="absolute w-[500px] h-[500px] bg-orange-600/40 rounded-full animate-ping" /><div className="absolute w-[300px] h-[300px] bg-yellow-400 rounded-full blur-3xl opacity-60 animate-pulse" /></div>;
+        if (h.isShockwave) return <div key={h.id} className="absolute pointer-events-none border-[8px] border-amber-100/40 rounded-full animate-shockwave" style={{ left: h.x, top: h.y }} />;
+        if (h.isSmoke) return <div key={h.id} className="absolute pointer-events-none bg-stone-600/40 rounded-full blur-2xl animate-smoke" style={{ left: h.x, top: h.y, width: h.size, height: h.size }} />;
+        if (h.isFire) return <div key={h.id} className="absolute pointer-events-none bg-orange-600 rounded-full blur-md animate-ember" style={{ left: h.x, top: h.y, width: h.size, height: h.size, boxShadow: '0 0 20px #ff8c00' }} />;
         return <ParticleEffect key={h.id} x={h.x} y={h.y} color={h.color} type={h.type} delay={h.delay} />;
       })}
 
       <div className="absolute bottom-0 left-0 w-full h-24 overflow-hidden pointer-events-none">
         {hits.map((h, i) => (!h.isExplosion && !h.isShockwave && !h.isSmoke && !h.isFire && h.type === 'liquid') && (
-          <div key={`puddle-${i}`} className="absolute rounded-full blur-md opacity-40 animate-pulse" style={{ left: `${(h.x / (containerRef.current?.clientWidth || 1)) * 100}%`, bottom: '-10px', width: '100px', height: '40px', backgroundColor: h.color, transform: 'translateX(-50%)' }} />
+          <div key={`puddle-${i}`} className="absolute rounded-full blur-md opacity-40 animate-pulse" style={{ left: `${(h.x / (containerRef.current?.clientWidth || 1)) * 100}%`, bottom: '-10px', width: '120px', height: '50px', backgroundColor: h.color, transform: 'translateX(-50%)' }} />
         ))}
       </div>
 
@@ -464,7 +432,7 @@ export const GameScene = forwardRef<GameSceneHandle, GameSceneProps>(({ status, 
         @keyframes float-up {
           0% { transform: translateY(0); opacity: 0; }
           10% { opacity: 1; }
-          100% { transform: translateY(-100px); opacity: 0; }
+          100% { transform: translateY(-120px); opacity: 0; }
         }
       `}</style>
     </div>

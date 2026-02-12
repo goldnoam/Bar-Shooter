@@ -93,7 +93,6 @@ const App: React.FC = () => {
     return () => clearInterval(puTimer);
   }, [stats.activePowerUp, stats.powerUpTime, status]);
 
-  // Global key listeners for Pause and Reset
   useEffect(() => {
     const handleGlobalKeys = (e: KeyboardEvent) => {
       if (e.key === 'p' || e.key === 'P') {
@@ -185,12 +184,7 @@ const App: React.FC = () => {
       
       <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")' }} />
       
-      {/* Adsense Top Placeholder */}
-      <div className="w-full h-12 md:h-20 bg-black/30 border-b border-amber-900/20 flex items-center justify-center overflow-hidden z-20">
-         <span className="text-[10px] text-stone-600 uppercase tracking-widest">Advertisement Space</span>
-      </div>
-
-      <div className="w-full max-w-4xl p-4 flex justify-between items-center z-10 bg-black/40 backdrop-blur-sm rounded-b-xl border-x border-b border-amber-900/50">
+      <div className="w-full max-w-4xl p-4 flex justify-between items-center z-10 bg-black/40 backdrop-blur-sm rounded-b-xl border-x border-b border-amber-900/50 shadow-2xl">
         <div className="flex items-center gap-4">
           <div className="flex flex-col items-center px-4 py-1 bg-amber-900/20 rounded border border-amber-800">
             <span className="text-xs text-amber-500 uppercase font-bold tracking-widest text-[10px]">שלב</span>
@@ -239,27 +233,26 @@ const App: React.FC = () => {
           isMuted={isMuted}
         />
 
-        {/* Improved Footer info */}
-        <div className="absolute bottom-4 left-0 w-full flex flex-col items-center z-10 opacity-70">
-           <p className="text-[12px] font-mono text-stone-400">(C) Noam Gold AI 2026</p>
-           <a href="mailto:goldnoamai@gmail.com" className="flex items-center gap-1 text-[12px] text-stone-500 hover:text-amber-500 transition-colors pointer-events-auto cursor-pointer">
+        <div className="absolute bottom-16 left-0 w-full flex flex-col items-center z-10 opacity-70 pointer-events-none">
+           <p className="text-[14px] font-mono text-stone-400 font-bold">(C) Noam Gold AI 2026</p>
+           <div className="flex items-center gap-2 text-[12px] text-stone-500">
              <span>Send Feedback</span>
              <Mail className="w-3 h-3" />
              <span className="font-mono">goldnoamai@gmail.com</span>
-           </a>
+           </div>
         </div>
 
         {status === GameStatus.MENU && (
           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md">
             <div className="p-12 bg-amber-950/40 border-4 border-amber-900 rounded-3xl text-center max-w-md w-full shadow-2xl">
               <h2 className="text-6xl font-rye text-amber-500 mb-8 drop-shadow-xl animate-bounce">מטווח המסבאה</h2>
-              <p className="text-lg text-amber-100 mb-10 leading-relaxed font-rye">ברוך הבא למערב הפרוע, שריף! פגע בבקבוקים כדי לצבור נקודות. השתמש ב-WASD או בעכבר.</p>
+              <p className="text-lg text-amber-100 mb-10 leading-relaxed font-rye">היה היורה המהיר ביותר במערב! שבור בקבוקים, שדרג את הרובה ושבור שיאים.</p>
               <button onClick={startGame} className="group relative px-12 py-5 bg-amber-700 hover:bg-amber-600 rounded-full text-3xl font-rye transition-all transform hover:scale-110 active:scale-95 shadow-xl border-b-4 border-amber-900 flex items-center gap-4"><Target className="w-8 h-8" /> יאללה לירות!</button>
               
-              <div className="mt-8 flex justify-center gap-4">
-                 <button onClick={() => setTheme(theme === 'dark' ? 'sepia' : 'dark')} className="p-3 bg-stone-800 rounded-full border border-stone-600 hover:bg-stone-700 flex items-center gap-2 text-xs font-bold transition-all">
+              <div className="mt-12 flex justify-center gap-6">
+                 <button onClick={() => setTheme(theme === 'dark' ? 'sepia' : 'dark')} className="flex items-center gap-2 p-3 bg-stone-800 rounded-xl border border-stone-600 hover:bg-stone-700 transition-all">
                     {theme === 'dark' ? <Sun className="w-5 h-5 text-yellow-500" /> : <Moon className="w-5 h-5 text-blue-400" />}
-                    <span>החלף ערכת נושא</span>
+                    <span className="text-xs font-bold">החלף ערכת נושא</span>
                  </button>
               </div>
             </div>
@@ -279,9 +272,15 @@ const App: React.FC = () => {
         )}
 
         {status === GameStatus.SHOP && (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-stone-900/95">
-            <div className="w-full max-w-2xl p-8 bg-black/50 border-2 border-amber-900 rounded-3xl backdrop-blur-xl">
-              <div className="flex justify-between items-end mb-8"><h2 className="text-5xl font-rye text-amber-500">חנות השדרוגים</h2><div className="bg-amber-900/40 px-4 py-2 rounded border border-amber-800"><span className="text-sm text-amber-600 block">הזהב שלך:</span><span className="text-2xl font-rye text-yellow-500">${stats.score}</span></div></div>
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-stone-900/95 p-6 overflow-y-auto">
+            <div className="w-full max-w-2xl p-8 bg-black/60 border-2 border-amber-900 rounded-3xl backdrop-blur-2xl shadow-[0_0_100px_rgba(217,119,6,0.2)]">
+              <div className="flex justify-between items-end mb-8">
+                <h2 className="text-5xl font-rye text-amber-500">חנות השדרוגים</h2>
+                <div className="bg-amber-900/40 px-5 py-2 rounded-xl border border-amber-800">
+                  <span className="text-sm text-amber-600 block">הזהב שלך:</span>
+                  <span className="text-2xl font-rye text-yellow-500">${stats.score}</span>
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                 {[
                   { id: 'ammo', name: 'עגלת תחמושת', cost: UPGRADE_COSTS.AMMO, icon: <Package className="w-6 h-6" />, desc: '+15 כדורים קבועים' },
@@ -289,12 +288,12 @@ const App: React.FC = () => {
                   { id: 'grenade', name: 'צרור רימונים', cost: UPGRADE_COSTS.GRENADE, icon: <Bomb className="w-6 h-6" />, desc: '+2 רימונים למלאי' },
                   { id: 'rifle', name: 'שיפור רובה', cost: UPGRADE_COSTS.RIFLE, icon: <Target className="w-6 h-6" />, desc: stats.rifleLevel >= RIFLE_BENEFITS.length ? 'רמה מקסימלית!' : `דיוק וקצב אש` },
                 ].map((item) => (
-                  <button key={item.id} disabled={stats.score < item.cost || (item.id === 'rifle' && stats.rifleLevel >= RIFLE_BENEFITS.length)} onClick={() => { if (stats.score >= item.cost) { setStats(prev => ({ ...prev, score: prev.score - item.cost, totalAmmo: item.id === 'ammo' ? prev.totalAmmo + 15 : prev.totalAmmo, grenades: item.id === 'grenade' ? prev.grenades + 2 : prev.grenades, rifleLevel: item.id === 'rifle' ? prev.rifleLevel + 1 : prev.rifleLevel })); } }} className={`flex items-start gap-4 p-4 rounded-xl border-2 transition-all ${(stats.score >= item.cost && !(item.id === 'rifle' && stats.rifleLevel >= RIFLE_BENEFITS.length)) ? 'bg-amber-900/20 border-amber-700 hover:bg-amber-900/40 scale-100 hover:scale-[1.02]' : 'bg-stone-800 border-stone-700 opacity-50 grayscale'}`}><div className="p-3 bg-amber-900 rounded-lg text-amber-400">{item.icon}</div><div className="text-right flex-1"><h4 className="font-bold text-lg font-rye">{item.name}</h4><p className="text-xs text-stone-400 mt-1">{item.desc}</p><div className="mt-2 text-yellow-500 font-rye">$${item.cost}</div></div></button>
+                  <button key={item.id} disabled={stats.score < item.cost || (item.id === 'rifle' && stats.rifleLevel >= RIFLE_BENEFITS.length)} onClick={() => { if (stats.score >= item.cost) { setStats(prev => ({ ...prev, score: prev.score - item.cost, totalAmmo: item.id === 'ammo' ? prev.totalAmmo + 15 : prev.totalAmmo, grenades: item.id === 'grenade' ? prev.grenades + 2 : prev.grenades, rifleLevel: item.id === 'rifle' ? prev.rifleLevel + 1 : prev.rifleLevel })); } }} className={`flex items-start gap-4 p-5 rounded-2xl border-2 transition-all ${(stats.score >= item.cost && !(item.id === 'rifle' && stats.rifleLevel >= RIFLE_BENEFITS.length)) ? 'bg-amber-900/30 border-amber-600 hover:bg-amber-900/50 scale-100 hover:scale-[1.02] shadow-lg' : 'bg-stone-800/40 border-stone-700 opacity-50 grayscale cursor-not-allowed'}`}><div className="p-3 bg-amber-900 rounded-lg text-amber-400">{item.icon}</div><div className="text-right flex-1"><h4 className="font-bold text-lg font-rye text-amber-100">{item.name}</h4><p className="text-xs text-stone-400 mt-1">{item.desc}</p><div className="mt-2 text-yellow-500 font-rye">$${item.cost}</div></div></button>
                 ))}
               </div>
-              <div className="flex justify-center gap-4">
-                <button onClick={nextLevel} className="px-12 py-4 bg-amber-600 hover:bg-amber-500 rounded-full text-2xl font-rye shadow-xl border-b-4 border-amber-800 flex items-center gap-3 transition-transform hover:translate-y-[-2px]">לשלב הבא <ChevronRight className="w-6 h-6" /></button>
-                <button onClick={nextLevel} className="px-6 py-4 bg-stone-700 hover:bg-stone-600 rounded-full text-lg font-rye shadow-lg border-b-4 border-stone-900 flex items-center gap-2 transition-transform hover:translate-y-[-2px] text-stone-300">דלג <X className="w-4 h-4" /></button>
+              <div className="flex flex-col md:flex-row justify-center gap-4">
+                <button onClick={nextLevel} className="px-12 py-5 bg-amber-700 hover:bg-amber-600 rounded-full text-2xl font-rye shadow-xl border-b-4 border-amber-900 flex items-center justify-center gap-3 transition-transform hover:translate-y-[-2px]">עבור לשלב הבא <ChevronRight className="w-6 h-6" /></button>
+                <button onClick={nextLevel} className="px-8 py-5 bg-stone-800 hover:bg-stone-700 rounded-full text-lg font-rye shadow-lg border-b-4 border-stone-950 flex items-center justify-center gap-2 transition-all hover:translate-y-[-2px] text-stone-400">עבור ללא שדרוג <X className="w-4 h-4" /></button>
               </div>
             </div>
           </div>
@@ -302,43 +301,38 @@ const App: React.FC = () => {
 
         {status === GameStatus.GAME_OVER && (
           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/95 text-center p-6">
-             <div className="p-12 max-w-md w-full bg-stone-900 border-2 border-red-900 rounded-3xl shadow-[0_0_50px_rgba(153,27,27,0.4)]">
-                <h2 className="text-6xl font-rye text-red-600 mb-2 drop-shadow-lg">נגמר התחמושת!</h2>
+             <div className="p-12 max-w-md w-full bg-stone-900 border-2 border-red-900 rounded-3xl shadow-[0_0_50px_rgba(153,27,27,0.5)]">
+                <h2 className="text-6xl font-rye text-red-600 mb-4 drop-shadow-lg">נגמר התחמושת!</h2>
                 <div className="mb-8 text-stone-400 font-rye">הגעת לשלב {stats.level} וצברת {stats.score} נקודות</div>
-                <div className="relative p-6 bg-stone-800 rounded-xl mb-10 border-l-4 border-amber-600 italic text-amber-100 font-rye text-right">
-                  <span className="absolute -top-3 right-4 bg-amber-600 text-black text-xs px-2 py-0.5 rounded font-bold">שמועות במסבאה:</span>
+                <div className="relative p-6 bg-stone-800/80 rounded-2xl mb-10 border-r-4 border-amber-600 italic text-amber-100 font-rye text-right">
+                  <span className="absolute -top-3 right-4 bg-amber-600 text-black text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">GOSSIP</span>
                   "{gossip}"
                 </div>
                 <div className="flex gap-4 justify-center">
-                  <button onClick={startGame} className="flex items-center gap-2 px-8 py-4 bg-amber-700 hover:bg-amber-600 rounded-lg font-rye text-xl transition-all hover:scale-105 active:scale-95"><RotateCcw className="w-6 h-6" /> נסה שוב</button>
+                  <button onClick={startGame} className="flex items-center gap-2 px-10 py-5 bg-amber-700 hover:bg-amber-600 rounded-full font-rye text-2xl transition-all hover:scale-105 active:scale-95 shadow-xl"><RotateCcw className="w-7 h-7" /> נסה שוב</button>
                 </div>
              </div>
           </div>
         )}
       </main>
 
-      <div className="w-full max-w-4xl p-4 flex justify-between items-center z-10 bg-black/20 backdrop-blur-md border-t border-amber-900/30">
+      <div className="w-full max-w-4xl p-4 flex justify-between items-center z-10 bg-black/40 backdrop-blur-md border-t border-amber-900/30">
         <div className="flex gap-4">
            {status === GameStatus.PLAYING && (
-             <button onClick={() => setStatus(GameStatus.PAUSED)} className="p-3 bg-stone-800 hover:bg-stone-700 rounded-full border border-stone-600 shadow-lg transition-all active:scale-90" title="עצור משחק (P)">
+             <button onClick={() => setStatus(GameStatus.PAUSED)} className="p-3 bg-stone-800 hover:bg-stone-700 rounded-full border border-stone-600 shadow-lg transition-all active:scale-90" title="עצור (P)">
                <Pause className="w-6 h-6 text-amber-500" />
              </button>
            )}
            <button onClick={() => setIsMuted(!isMuted)} className="p-3 bg-stone-800 hover:bg-stone-700 rounded-full border border-stone-600 shadow-lg transition-all active:scale-90">
              {isMuted ? <VolumeX className="w-6 h-6 text-red-500" /> : <Volume2 className="w-6 h-6 text-green-500" />}
            </button>
-           <button onClick={() => setTheme(theme === 'dark' ? 'sepia' : 'dark')} className="p-3 bg-stone-800 hover:bg-stone-700 rounded-full border border-stone-600 shadow-lg transition-all active:scale-90" title="שנה ערכת נושא">
+           <button onClick={() => setTheme(theme === 'dark' ? 'sepia' : 'dark')} className="p-3 bg-stone-800 hover:bg-stone-700 rounded-full border border-stone-600 shadow-lg transition-all active:scale-90">
              {theme === 'dark' ? <Moon className="w-6 h-6 text-amber-400" /> : <Sun className="w-6 h-6 text-yellow-500" />}
            </button>
         </div>
         <div className="text-stone-500 text-[10px] uppercase tracking-widest font-bold font-rye opacity-50 text-left">
-           Shoot: MOUSE / SPACE | Move: WASD / MOUSE | Pause: P | Reset: R
+           ירי: עכבר / רווח | תנועה: WASD / עכבר | הפסקה: P | איפוס: R
         </div>
-      </div>
-
-      {/* Adsense Bottom Placeholder */}
-      <div className="w-full h-12 md:h-16 bg-black/30 border-t border-amber-900/20 flex items-center justify-center overflow-hidden z-20">
-         <span className="text-[10px] text-stone-600 uppercase tracking-widest">Advertisement Space</span>
       </div>
     </div>
   );
