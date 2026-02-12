@@ -1,28 +1,19 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GameStatus, PlayerStats, ScoreEntry, PowerUpType } from './types';
 import { INITIAL_AMMO, LEVEL_TIME, AMMO_REDUCTION_PER_LEVEL, POWER_UP_DURATION, UPGRADE_COSTS, RIFLE_BENEFITS } from './constants';
 import { GameScene, GameSceneHandle } from './components/GameScene';
 import { HighScoreTable } from './components/HighScoreTable';
 import { getSaloonGossip } from './services/geminiService';
-import { Target, Zap, Pause, RotateCcw, Award, Clock, Package, Bomb, Volume2, VolumeX, ChevronRight, X, Moon, Sun, Mail, Play, Github } from 'lucide-react';
-
-const STATIC_GOSSIP = [
-  "מי זה הבחור הזה? הוא יורה מהר יותר מהצל שלו!",
-  "מעולם לא ראיתי מישהו מנפץ בקבוק ג'ין ממרחק כזה.",
-  "הוא מזכיר לי את 'עין הנץ' מהשנה שעברה, רק עם פחות שיער.",
-  "אני מקווה שהוא ישלם על כל הבקבוקים האלה...",
-  "זה היה ירי מרשים, אבל בוא נראה אותו עושה את זה אחרי כוס וויסקי.",
-  "השריף החדש בעיר יודע לעבוד עם הברזל שלו.",
-  "מישהו פה יורה כמו שד משחת!",
-  "לא רע בכלל עבור עירוני שכמוך...",
-];
+import { Target, Zap, Pause, RotateCcw, Award, Clock, Package, Bomb, Volume2, VolumeX, ChevronRight, X, Moon, Sun, Mail, Play, Github, Music } from 'lucide-react';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<GameStatus>(GameStatus.MENU);
   const [showHighScores, setShowHighScores] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'sepia'>('dark');
+  const [partyMode, setPartyMode] = useState(false);
+  const [eggCount, setEggCount] = useState(0);
+  
   const [stats, setStats] = useState<PlayerStats>({
     score: 0,
     level: 1,
@@ -38,6 +29,18 @@ const App: React.FC = () => {
   const [gossip, setGossip] = useState<string>('');
   const sceneRef = useRef<GameSceneHandle>(null);
   const musicRef = useRef<HTMLAudioElement>(null);
+
+  const triggerEasterEgg = () => {
+    setEggCount(prev => {
+      const next = prev + 1;
+      if (next >= 5) {
+        setPartyMode(true);
+        setTimeout(() => setPartyMode(false), 20000); // 20 seconds of party!
+        return 0;
+      }
+      return next;
+    });
+  };
 
   const saveHighScore = useCallback((score: number) => {
     const newEntry: ScoreEntry = {
@@ -60,14 +63,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (musicRef.current) {
-      musicRef.current.volume = 0.2;
+      musicRef.current.volume = partyMode ? 0.5 : 0.2;
       if (status === GameStatus.PLAYING && !isMuted) {
         musicRef.current.play().catch(() => {});
       } else {
         musicRef.current.pause();
       }
     }
-  }, [status, isMuted]);
+  }, [status, isMuted, partyMode]);
 
   useEffect(() => {
     let timer: number;
@@ -152,7 +155,8 @@ const App: React.FC = () => {
   };
 
   const handleHit = (points: number) => {
-    setStats(prev => ({ ...prev, score: prev.score + points }));
+    const multiplier = partyMode ? 2 : 1;
+    setStats(prev => ({ ...prev, score: prev.score + (points * multiplier) }));
   };
 
   const handlePowerUp = (type: PowerUpType) => {
@@ -170,7 +174,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Fix: Integrated getSaloonGossip to fetch real-time reactions from Gemini.
   const gameOver = async () => {
     setStatus(GameStatus.GAME_OVER);
     saveHighScore(stats.score);
@@ -188,12 +191,17 @@ const App: React.FC = () => {
   }, [stats.ammo, status, stats.activePowerUp]);
 
   return (
-    <div className={`relative w-full h-screen bg-stone-900 text-stone-100 flex flex-col items-center select-none overflow-hidden transition-all duration-500`}>
-      <audio ref={musicRef} loop src="https://www.soundjay.com/misc/sounds/piano-bar-ambience-1.mp3" />
+    <div className={`relative w-full h-screen bg-stone-900 text-stone-100 flex flex-col items-center select-none overflow-hidden transition-all duration-500 ${partyMode ? 'animate-party-bg' : ''}`}>
+      <audio ref={musicRef} loop src={partyMode ? "https://assets.mixkit.co/active_storage/sfx/2092/2092-preview.mp3" : "https://www.soundjay.com/misc/sounds/piano-bar-ambience-1.mp3"} />
       <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/dark-wood.png")' }} />
       
-      <div className="w-full h-10 md:h-16 bg-black/20 flex items-center justify-center border-b border-amber-900/10 z-20">
-         <span className="text-[9px] text-stone-600 uppercase tracking-widest font-bold">Advertisement</span>
+      <div 
+        onClick={triggerEasterEgg}
+        className="w-full h-10 md:h-16 bg-black/20 flex items-center justify-center border-b border-amber-900/10 z-20 cursor-pointer hover:bg-black/30 transition-colors"
+      >
+         <span className={`text-[9px] uppercase tracking-widest font-bold ${partyMode ? 'text-yellow-400 animate-pulse' : 'text-stone-600'}`}>
+           {partyMode ? 'SALOON PARTY ACTIVE! x2 SCORE' : 'Advertisement'}
+         </span>
       </div>
 
       <div className="w-full max-w-4xl p-4 flex justify-between items-center z-10 bg-black/40 backdrop-blur-sm rounded-b-xl border-x border-b border-amber-900/50 shadow-2xl">
@@ -214,6 +222,12 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2 bg-yellow-500/20 px-3 py-0.5 rounded-full border border-yellow-500/50 animate-pulse">
               <Zap className="w-3 h-3 text-yellow-400" />
               <span className="text-[10px] font-bold uppercase">{stats.activePowerUp.replace('_', ' ')}</span>
+            </div>
+          )}
+          {partyMode && (
+            <div className="flex items-center gap-2 bg-purple-500/20 px-3 py-0.5 rounded-full border border-purple-500/50 animate-bounce">
+              <Music className="w-3 h-3 text-purple-400" />
+              <span className="text-[10px] font-bold uppercase">PARTY TIME!</span>
             </div>
           )}
         </div>
@@ -372,6 +386,15 @@ const App: React.FC = () => {
         )}
       </main>
 
+      <div 
+        onClick={triggerEasterEgg}
+        className="w-full h-8 md:h-12 bg-black/20 flex items-center justify-center border-t border-amber-900/10 z-20 cursor-pointer"
+      >
+         <span className={`text-[9px] uppercase tracking-widest font-bold ${partyMode ? 'text-yellow-400 animate-pulse' : 'text-stone-600'}`}>
+           {partyMode ? 'YEAH! PARTY ON!' : 'Advertisement'}
+         </span>
+      </div>
+      
       <div className="w-full max-w-4xl p-4 flex justify-between items-center z-10 bg-black/40 backdrop-blur-md border-t border-amber-900/30">
         <div className="flex gap-4">
            {status === GameStatus.PLAYING && (
@@ -392,10 +415,6 @@ const App: React.FC = () => {
         <div className="text-stone-500 text-[10px] uppercase tracking-widest font-bold font-rye opacity-50 text-left">
            ירי: עכבר / רווח | תנועה: WASD / עכבר | הפסקה: P | איפוס: R
         </div>
-      </div>
-      
-      <div className="w-full h-8 md:h-12 bg-black/20 flex items-center justify-center border-t border-amber-900/10 z-20">
-         <span className="text-[9px] text-stone-600 uppercase tracking-widest font-bold">Advertisement</span>
       </div>
     </div>
   );
